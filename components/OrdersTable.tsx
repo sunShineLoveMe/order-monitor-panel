@@ -34,6 +34,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { MoreHorizontalIcon, AlertTriangleIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Order as OrderType } from "@/lib/types";
 
 const statusIcons = {
   pending: Clock,
@@ -55,13 +58,13 @@ interface OrdersTableProps {
 }
 
 export default function OrdersTable({ type, className }: OrdersTableProps) {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderType[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<Record<string, OrderAnalysis>>({});
   const [analyzing, setAnalyzing] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
   const [batchAnalysisResults, setBatchAnalysisResults] = useState<Record<string, OrderAnalysis>>({});
@@ -72,6 +75,9 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
   const [selectedResolution, setSelectedResolution] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
   const [showAnomalies, setShowAnomalies] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const pageSize = 10;
 
   useEffect(() => {
     loadOrders();
@@ -86,13 +92,14 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
     return () => {
       channel.unsubscribe();
     };
-  }, [type]);
+  }, [type, currentPage]);
 
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await DatabaseService.getOrders(type);
-      setOrders(data);
+      const result = await DatabaseService.getOrders(type, currentPage, pageSize);
+      setOrders(result.orders);
+      setTotalOrders(result.total);
     } catch (error) {
       console.error('加载订单失败:', error);
     } finally {
@@ -117,7 +124,7 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
     }
   };
 
-  const handleAnalyzeOrder = async (order: Order) => {
+  const handleAnalyzeOrder = async (order: OrderType) => {
     setSelectedOrders(new Set([order.id]));
     
     try {
@@ -183,7 +190,7 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
     }
   };
 
-  const handleOrderAction = async (order: Order, action: string) => {
+  const handleOrderAction = async (order: OrderType, action: string) => {
     try {
       switch (action) {
         case 'complete':
@@ -196,7 +203,7 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
               type: 'cancelled',
               description: '订单已取消',
               status: 'open',
-              createdAt: new Date().toISOString()
+              created_at: new Date().toISOString()
             }
           ]});
           break;
@@ -249,6 +256,36 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const getStatusColor = (status: OrderType['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'processing':
+        return 'secondary';
+      case 'pending':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusText = (status: OrderType['status']) => {
+    switch (status) {
+      case 'completed':
+        return '已完成';
+      case 'processing':
+        return '处理中';
+      case 'pending':
+        return '待处理';
+      default:
+        return status;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[200px]">
@@ -282,6 +319,24 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
         <div className="text-sm text-muted-foreground">
           已选择 {selectedOrders.size} 个订单
         </div>
+      </div>
+
+      <div className="flex gap-4">
+        <Input
+          placeholder="搜索订单..."
+          className="max-w-sm"
+        />
+        <Select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="订单状态" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">全部状态</SelectItem>
+            <SelectItem value="completed">已完成</SelectItem>
+            <SelectItem value="processing">处理中</SelectItem>
+            <SelectItem value="pending">待处理</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-md border">
@@ -326,17 +381,26 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                       onCheckedChange={() => toggleOrderSelection(order.id)}
                     />
                   </TableCell>
-                  <TableCell>{order.orderNumber}</TableCell>
+                  <TableCell>{order.order_number}</TableCell>
                   <TableCell>{order.customer}</TableCell>
-                  <TableCell>{order.productName}</TableCell>
+                  <TableCell>{order.product_name}</TableCell>
                   <TableCell className="text-right">{order.quantity}</TableCell>
                   <TableCell className="text-right">
                     ¥{order.value.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(order.status)}
+                    <Badge variant={getStatusColor(order.status)}>
+                      {getStatusText(order.status)}
+                    </Badge>
                   </TableCell>
-                  <TableCell>{order.date}</TableCell>
+                  <TableCell>
+                    {new Date(order.date).toLocaleString("zh-CN")}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={order.type === 'inbound' ? 'default' : 'secondary'}>
+                      {order.type === 'inbound' ? '入库' : '出库'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -397,9 +461,9 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                 <div key={orderId} className="space-y-4 p-4 border rounded-lg">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-medium">订单 {order?.orderNumber}</h4>
+                      <h4 className="font-medium">订单 {order?.order_number}</h4>
                       <p className="text-sm text-muted-foreground">
-                        {order?.productName} · {order?.customer}
+                        {order?.product_name} · {order?.customer}
                       </p>
                     </div>
                     <Badge
@@ -478,11 +542,11 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                     <div>
                       <h4 className="font-medium">订单信息</h4>
                       <p className="text-sm text-muted-foreground">
-                        订单号: {selectedOrder.orderNumber}
+                        订单号: {selectedOrder.order_number}
                         <br />
                         客户: {selectedOrder.customer}
                         <br />
-                        产品: {selectedOrder.productName}
+                        产品: {selectedOrder.product_name}
                         <br />
                         数量: {selectedOrder.quantity}
                         <br />
@@ -563,6 +627,29 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 分页控件 */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          显示 {(currentPage - 1) * pageSize + 1} 到 {Math.min(currentPage * pageSize, totalOrders)} 条，共 {totalOrders} 条
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded border disabled:opacity-50"
+          >
+            上一页
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage * pageSize >= totalOrders}
+            className="px-3 py-1 rounded border disabled:opacity-50"
+          >
+            下一页
+          </button>
+        </div>
+      </div>
     </div>
   );
 } 

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Order, InventoryItem } from '@/lib/data';
+import type { Order, InventoryItem } from '@/lib/types';
 
 interface SalesPrediction {
   date: string;
@@ -46,15 +46,45 @@ interface MonthlyStats {
 
 export class DatabaseService {
   // 订单相关方法
-  static async getOrders(type?: 'inbound' | 'outbound'): Promise<Order[]> {
+  static async getOrders(
+    type?: 'inbound' | 'outbound',
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{ orders: Order[]; total: number }> {
     try {
-      let query = supabase.from('orders').select('*');
+      let query = supabase.from('orders').select('*', { count: 'exact' });
       if (type) {
         query = query.eq('type', type);
       }
-      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize - 1;
+      
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(start, end);
+        
       if (error) throw error;
-      return data || [];
+
+      // 确保返回的数据符合 Order 类型
+      const orders = (data || []).map(order => ({
+        id: order.id,
+        order_number: order.order_number,
+        customer: order.customer,
+        product_name: order.product_name,
+        quantity: order.quantity,
+        value: order.value,
+        status: order.status as 'completed' | 'processing' | 'pending',
+        date: order.date,
+        type: order.type as 'inbound' | 'outbound',
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      }));
+
+      return {
+        orders,
+        total: count || 0
+      };
     } catch (error) {
       console.error('获取订单失败:', error);
       throw error;

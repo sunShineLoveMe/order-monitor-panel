@@ -1,40 +1,76 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
-import OrdersTable from "@/components/OrdersTable";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import OutboundForm from "@/components/OutboundForm";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, Title, Text, Tab, TabList, TabGroup, TabPanels, TabPanel } from '@tremor/react';
+import { DatabaseService } from '@/lib/services/database';
+import { Order } from '@/lib/types';
+import OrdersTable from '@/components/OrdersTable';
+import { OrderStats } from '@/components/orders/OrderStats';
+import { OrderChart } from '@/components/orders/OrderChart';
 
 export default function OrdersPage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">订单管理</h2>
-        <div className="flex items-center space-x-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusIcon className="mr-2 h-4 w-4" />
-                新建订单
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>新建订单</DialogTitle>
-              </DialogHeader>
-              <OutboundForm />
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+  const [activeTab, setActiveTab] = useState(0);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const pageSize = 10;
 
+  useEffect(() => {
+    loadOrders();
+  }, [activeTab, currentPage]);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const type = activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound';
+      const result = await DatabaseService.getOrders(type, currentPage, pageSize);
+      setOrders(result.orders);
+      setTotalOrders(result.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载订单失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <Title>订单管理</Title>
+      
       <Card>
-        <CardHeader>
-          <CardTitle>订单列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <OrdersTable />
-        </CardContent>
+        <TabGroup index={activeTab} onIndexChange={setActiveTab}>
+          <TabList>
+            <Tab>全部订单</Tab>
+            <Tab>入库订单</Tab>
+            <Tab>出库订单</Tab>
+          </TabList>
+          
+          <TabPanels>
+            <TabPanel>
+              <OrderStats orders={orders} />
+              <OrderChart orders={orders} />
+              <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
+            </TabPanel>
+            
+            <TabPanel>
+              <OrderStats orders={orders} />
+              <OrderChart orders={orders} />
+              <OrdersTable type="inbound" />
+            </TabPanel>
+            
+            <TabPanel>
+              <OrderStats orders={orders} />
+              <OrderChart orders={orders} />
+              <OrdersTable type="outbound" />
+            </TabPanel>
+          </TabPanels>
+        </TabGroup>
       </Card>
     </div>
   );

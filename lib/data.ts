@@ -1,27 +1,6 @@
-export interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  productName: string;
-  quantity: number;
-  value: number;
-  status: "pending" | "processing" | "completed" | "exception";
-  date: string;
-  type: "inbound" | "outbound";
-  products: Array<{
-    id: string;
-    name: string;
-    quantity: number;
-    price: number;
-  }>;
-  exceptions?: Array<{
-    type: string;
-    description: string;
-    status: "open" | "resolved";
-    createdAt: string;
-    resolvedAt?: string;
-  }>;
-}
+import type { Order as OrderType } from './types';
+
+export type { OrderType as Order };
 
 export interface InventoryItem {
   id: string;
@@ -75,63 +54,45 @@ export type AIInsight = {
   timestamp: string;
 };
 
-export const mockOrders: Order[] = [
+export const mockOrders: OrderType[] = [
   {
     id: "1",
-    orderNumber: "IN-20240301-001",
+    order_number: "IN-20240301-001",
     customer: "供应商A",
     type: "inbound",
     status: "completed",
-    productName: "iPhone 15 Pro",
+    product_name: "iPhone 15 Pro",
     quantity: 100,
     value: 10000,
     date: "2024-03-01",
-    products: [
-      {
-        id: "iPhone 15 Pro",
-        name: "iPhone 15 Pro",
-        quantity: 100,
-        price: 100
-      }
-    ],
+    created_at: "2024-03-01T00:00:00Z",
+    updated_at: "2024-03-01T00:00:00Z"
   },
   {
     id: "2",
-    orderNumber: "OUT-20240301-001",
+    order_number: "OUT-20240301-001",
     customer: "客户B",
     type: "outbound",
     status: "pending",
-    productName: "iPhone 15 Pro",
+    product_name: "iPhone 15 Pro",
     quantity: 50,
     value: 5000,
     date: "2024-03-01",
-    products: [
-      {
-        id: "iPhone 15 Pro",
-        name: "iPhone 15 Pro",
-        quantity: 50,
-        price: 100
-      }
-    ],
+    created_at: "2024-03-01T00:00:00Z",
+    updated_at: "2024-03-01T00:00:00Z"
   },
   {
     id: "3",
-    orderNumber: "IN-20240301-002",
+    order_number: "IN-20240301-002",
     customer: "供应商C",
     type: "inbound",
-    status: "exception",
-    productName: "AirPods Pro",
+    status: "processing",
+    product_name: "AirPods Pro",
     quantity: 200,
     value: 20000,
     date: "2024-03-01",
-    products: [
-      {
-        id: "AirPods Pro",
-        name: "AirPods Pro",
-        quantity: 200,
-        price: 100
-      }
-    ],
+    created_at: "2024-03-01T00:00:00Z",
+    updated_at: "2024-03-01T00:00:00Z"
   },
 ];
 

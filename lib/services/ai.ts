@@ -107,7 +107,7 @@ export class AIService {
     // 基本订单检查
     findings.push({
       category: '基本信息',
-      description: `订单${order.orderNumber}的基本信息分析`,
+      description: `订单${order.order_number}的基本信息分析`,
       severity: 'low' as const,
       recommendations: ['确保所有必要字段已填写']
     });
@@ -124,7 +124,7 @@ export class AIService {
 
     return {
       orderId: order.id,
-      orderNumber: order.orderNumber,
+      orderNumber: order.order_number,
       analysisType: order.type,
       findings,
       summary: '订单分析完成',
