@@ -1,0 +1,347 @@
+import { supabase } from '@/lib/supabase';
+import type { Order, InventoryItem } from '@/lib/data';
+
+interface SalesPrediction {
+  date: string;
+  revenue: number;
+  quantity: number;
+  growthRate: number;
+  upperBound: number;
+  lowerBound: number;
+}
+
+interface GetSalesPredictionsParams {
+  timeframe: "short" | "medium" | "long";
+  productId: string | null;
+}
+
+interface DashboardStats {
+  totalInventory: number;
+  inboundCount: number;
+  outboundCount: number;
+  exceptionCount: number;
+  monthlyGrowth: {
+    inventory: number;
+    inbound: number;
+    outbound: number;
+    exception: number;
+  };
+  inventoryTurnover: {
+    overall: number;
+    highDemand: number;
+    lowDemand: number;
+  };
+  monthlyStats: Array<{
+    month: string;
+    inbound: number;
+    outbound: number;
+  }>;
+}
+
+interface MonthlyStats {
+  month: string;
+  inbound: number;
+  outbound: number;
+}
+
+export class DatabaseService {
+  // 订单相关方法
+  static async getOrders(type?: 'inbound' | 'outbound'): Promise<Order[]> {
+    try {
+      let query = supabase.from('orders').select('*');
+      if (type) {
+        query = query.eq('type', type);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取订单失败:', error);
+      throw error;
+    }
+  }
+
+  static async createOrder(order: Omit<Order, 'id'>): Promise<Order> {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([order])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('创建订单失败:', error);
+      throw error;
+    }
+  }
+
+  static async updateOrder(id: string, updates: Partial<Order>): Promise<Order> {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('更新订单失败:', error);
+      throw error;
+    }
+  }
+
+  // 库存相关方法
+  static async getInventory(filters?: { 
+    location?: string; 
+    status?: string; 
+    search?: string 
+  }): Promise<InventoryItem[]> {
+    try {
+      let query = supabase
+        .from('inventory')
+        .select(`
+          id,
+          name,
+          sku,
+          category,
+          quantity,
+          threshold,
+          location,
+          price,
+          status,
+          updated_at,
+          supplier
+        `);
+
+      if (filters?.location) {
+        query = query.eq('location', filters.location);
+      }
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters?.search) {
+        query = query.textSearch('name', filters.search);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        category: item.category,
+        quantity: item.quantity,
+        threshold: item.threshold,
+        location: item.location,
+        price: item.price,
+        status: item.status,
+        lastUpdated: item.updated_at,
+        supplier: item.supplier
+      }));
+    } catch (error) {
+      console.error('获取库存失败:', error);
+      throw error;
+    }
+  }
+
+  static async updateInventory(id: string, updates: Partial<InventoryItem>): Promise<InventoryItem> {
+    try {
+      const { data, error } = await supabase
+        .from('inventory')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('更新库存失败:', error);
+      throw error;
+    }
+  }
+
+  // 仪表盘统计相关方法
+  static async getDashboardStats(): Promise<DashboardStats> {
+    try {
+      // 获取基础统计数据
+      const [
+        monthlyStats,
+        monthlyGrowth,
+        inventoryTurnover
+      ] = await Promise.all([
+        this.calculateMonthlyStats(),
+        this.calculateMonthlyGrowth(),
+        this.calculateInventoryTurnover()
+      ]);
+
+      // 获取总库存量
+      const { data: inventoryData } = await supabase
+        .from('inventory')
+        .select('quantity');
+      
+      const totalInventory = (inventoryData || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      // 获取各类订单数量
+      const { data: orderCounts } = await supabase
+        .from('orders')
+        .select('type, status')
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      const inboundCount = (orderCounts || []).filter(order => order.type === 'inbound').length;
+      const outboundCount = (orderCounts || []).filter(order => order.type === 'outbound').length;
+      const exceptionCount = (orderCounts || []).filter(order => order.status === 'exception').length;
+
+      return {
+        totalInventory,
+        inboundCount,
+        outboundCount,
+        exceptionCount,
+        monthlyGrowth: {
+          inventory: monthlyGrowth,
+          inbound: 0, // TODO: 计算环比增长
+          outbound: 0,
+          exception: 0
+        },
+        inventoryTurnover: {
+          overall: inventoryTurnover,
+          highDemand: 0, // TODO: 计算高需求商品周转率
+          lowDemand: 0
+        },
+        monthlyStats
+      };
+    } catch (error) {
+      console.error('获取仪表盘统计失败:', error);
+      throw error;
+    }
+  }
+
+  // 预测相关方法
+  static async getSalesPredictions(params: GetSalesPredictionsParams): Promise<SalesPrediction[]> {
+    try {
+      const { data, error } = await supabase
+        .from('sales_predictions')
+        .select('*')
+        .eq('product_id', params.productId)
+        .eq('timeframe', params.timeframe)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('获取销售预测失败:', error);
+      throw error;
+    }
+  }
+
+  // 私有辅助方法
+  private static async calculateMonthlyStats(): Promise<MonthlyStats[]> {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('type, created_at')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const monthlyStats: MonthlyStats[] = [];
+      const months = new Set<string>();
+      
+      // 按月份分组统计
+      (data || []).forEach(order => {
+        const month = new Date(order.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+        if (!months.has(month)) {
+          months.add(month);
+          monthlyStats.push({
+            month,
+            inbound: 0,
+            outbound: 0
+          });
+        }
+        const currentMonth = monthlyStats.find(stat => stat.month === month);
+        if (currentMonth) {
+          if (order.type === 'inbound') {
+            currentMonth.inbound++;
+          } else {
+            currentMonth.outbound++;
+          }
+        }
+      });
+
+      return monthlyStats;
+    } catch (error) {
+      console.error('计算月度统计失败:', error);
+      return [];
+    }
+  }
+
+  private static async calculateMonthlyGrowth(): Promise<number> {
+    try {
+      const { data: currentInventory } = await supabase
+        .from('inventory')
+        .select('quantity')
+        .single();
+
+      // 这里简化处理，实际应该计算上月库存量
+      const lastMonthInventory = (currentInventory?.quantity || 0) * 0.9;
+      return ((currentInventory?.quantity || 0) - lastMonthInventory) / lastMonthInventory * 100;
+    } catch (error) {
+      console.error('计算月度增长失败:', error);
+      return 0;
+    }
+  }
+
+  private static async calculateInventoryTurnover(): Promise<number> {
+    try {
+      // 获取总库存量
+      const { data: inventory } = await supabase
+        .from('inventory')
+        .select('quantity')
+        .single();
+
+      // 获取月出库量
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 1);
+      
+      const { data: monthlyOutbound } = await supabase
+        .from('orders')
+        .select('quantity')
+        .eq('type', 'outbound')
+        .gte('created_at', startDate.toISOString());
+
+      const totalInventory = inventory?.quantity || 0;
+      const monthlyOutboundQuantity = (monthlyOutbound || []).reduce((sum, order) => sum + (order.quantity || 0), 0);
+
+      return totalInventory > 0 ? (monthlyOutboundQuantity * 12) / totalInventory : 0;
+    } catch (error) {
+      console.error('计算库存周转率失败:', error);
+      return 0;
+    }
+  }
+
+  // 预测缓存相关方法
+  static async getPredictions(type: 'sales' | 'inventory' | 'supply_chain') {
+    try {
+      const { data, error } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('prediction_type', type)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      return data?.data;
+    } catch (error) {
+      console.error(`获取${type}预测失败:`, error);
+      return null;
+    }
+  }
+} 
