@@ -59,8 +59,8 @@ export default function OrdersPage() {
             
             <TabPanels>
               <TabPanel>
-                <OrderStats orders={orders} />
-                <OrderChart orders={orders} />
+                {/* <OrderStats orders={orders} /> */}
+                {/* <OrderChart orders={orders} /> */}
                 <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
               </TabPanel>
             </TabPanels>
