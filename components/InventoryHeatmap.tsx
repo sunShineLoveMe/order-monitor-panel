@@ -136,7 +136,7 @@ export function InventoryHeatmap({ className }: InventoryHeatmapProps) {
               <SelectValue placeholder="选择仓库" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">全部仓库</SelectItem>
+              <SelectItem value="all">全部仓库</SelectItem>
               <SelectItem value="北京">北京仓库</SelectItem>
               <SelectItem value="上海">上海仓库</SelectItem>
               <SelectItem value="广州">广州仓库</SelectItem>
@@ -152,7 +152,7 @@ export function InventoryHeatmap({ className }: InventoryHeatmapProps) {
               <SelectValue placeholder="选择状态" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">全部状态</SelectItem>
+              <SelectItem value="all">全部状态</SelectItem>
               <SelectItem value="正常">正常</SelectItem>
               <SelectItem value="缺货">缺货</SelectItem>
               <SelectItem value="过剩">过剩</SelectItem>

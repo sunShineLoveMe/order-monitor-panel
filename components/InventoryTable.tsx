@@ -50,7 +50,7 @@ export default function InventoryTable() {
             <SelectValue placeholder="选择仓库" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部仓库</SelectItem>
+            <SelectItem value="all">全部仓库</SelectItem>
             <SelectItem value="SH">上海仓</SelectItem>
             <SelectItem value="BJ">北京仓</SelectItem>
             <SelectItem value="GZ">广州仓</SelectItem>
@@ -61,7 +61,7 @@ export default function InventoryTable() {
             <SelectValue placeholder="库存状态" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部状态</SelectItem>
+            <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="normal">正常</SelectItem>
             <SelectItem value="low">偏低</SelectItem>
             <SelectItem value="critical">紧缺</SelectItem>

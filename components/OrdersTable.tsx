@@ -331,7 +331,7 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
             <SelectValue placeholder="订单状态" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部状态</SelectItem>
+            <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="completed">已完成</SelectItem>
             <SelectItem value="processing">处理中</SelectItem>
             <SelectItem value="pending">待处理</SelectItem>

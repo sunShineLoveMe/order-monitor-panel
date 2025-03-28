@@ -57,18 +57,6 @@ export default function OrdersPage() {
               <OrderChart orders={orders} />
               <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
             </TabPanel>
-            
-            <TabPanel>
-              <OrderStats orders={orders} />
-              <OrderChart orders={orders} />
-              <OrdersTable type="inbound" />
-            </TabPanel>
-            
-            <TabPanel>
-              <OrderStats orders={orders} />
-              <OrderChart orders={orders} />
-              <OrdersTable type="outbound" />
-            </TabPanel>
           </TabPanels>
         </TabGroup>
       </Card>

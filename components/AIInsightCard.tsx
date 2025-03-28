@@ -7,6 +7,7 @@ import { AIService, AIInsight, aiService } from "@/lib/services/ai";
 import { RefreshCwIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DatabaseService } from "@/lib/services/database";
+import { mockAIInsights } from "@/lib/data";
 
 interface AIInsightCardProps {
   className?: string;
@@ -16,33 +17,84 @@ export default function AIInsightCard({ className }: AIInsightCardProps) {
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   const loadInsights = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
-      // 获取最近30天的订单和库存数据
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-      
-      const orders = await DatabaseService.getOrders();
-      const inventory = await DatabaseService.getInventory();
-      
-      const data = {
-        orders,
-        inventory,
-        timeRange: {
-          start: startDate,
-          end: endDate
+      try {
+        // 获取最近30天的订单和库存数据
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        
+        // 尝试从数据库获取数据
+        const ordersResult = await DatabaseService.getOrders();
+        const inventory = await DatabaseService.getInventory();
+        
+        // 如果成功获取了数据，使用AI服务生成洞察
+        if (ordersResult && ordersResult.orders && inventory) {
+          const data = {
+            orders: ordersResult.orders,
+            inventory,
+            timeRange: {
+              start: startDate,
+              end: endDate
+            }
+          };
+          
+          // 请求AI生成洞察
+          const result = await aiService.generateInsights(data);
+          
+          if (result && result.length > 0) {
+            setInsights(result);
+            setLastUpdated(new Date().toLocaleString());
+            return;
+          }
         }
-      };
-      
-      const result = await aiService.generateInsights(data);
-      setInsights(result);
-      setLastUpdated(new Date().toLocaleString());
+        
+        // 如果数据获取失败或数据为空，使用模拟数据
+        throw new Error("实时数据获取失败或为空");
+        
+      } catch (err) {
+        console.warn("尝试获取实时数据失败，使用模拟数据:", err);
+        
+        // 将mockAIInsights转换为AI服务的AIInsight格式
+        const mockInsights: AIInsight[] = mockAIInsights.map(insight => ({
+          type: insight.category as 'sales' | 'inventory' | 'supply_chain',
+          title: insight.title,
+          description: insight.summary,
+          recommendations: [insight.details]
+        }));
+        
+        setInsights(mockInsights);
+        setLastUpdated(new Date().toLocaleString() + " (模拟数据)");
+      }
     } catch (error) {
       console.error("加载AI洞察失败:", error);
+      setError("加载AI洞察失败，请稍后重试");
+      
+      // 在完全失败的情况下，仍显示一些模拟数据
+      if (insights.length === 0) {
+        const fallbackInsights: AIInsight[] = [
+          {
+            type: 'inventory',
+            title: '库存优化建议',
+            description: '部分商品库存偏低，建议及时补充',
+            recommendations: ['检查热销商品的库存水平', '考虑增加安全库存']
+          },
+          {
+            type: 'sales',
+            title: '销售趋势分析',
+            description: '近期销售额有上升趋势',
+            recommendations: ['关注高增长产品线', '调整营销策略以持续增长']
+          }
+        ];
+        setInsights(fallbackInsights);
+        setLastUpdated(new Date().toLocaleString() + " (备用数据)");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +137,12 @@ export default function AIInsightCard({ className }: AIInsightCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          
           {insights.map((insight, index) => (
             <div key={index} className="space-y-2">
               <div className="flex items-center space-x-2">
@@ -102,7 +160,7 @@ export default function AIInsightCard({ className }: AIInsightCardProps) {
               </ul>
             </div>
           ))}
-          {insights.length === 0 && !isLoading && (
+          {insights.length === 0 && !isLoading && !error && (
             <p className="text-sm text-muted-foreground">暂无洞察</p>
           )}
           {isLoading && (
@@ -112,4 +170,4 @@ export default function AIInsightCard({ className }: AIInsightCardProps) {
       </CardContent>
     </Card>
   );
-} 
+}
