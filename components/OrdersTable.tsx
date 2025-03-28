@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Order as OrderType } from "@/lib/types";
+import AIAnalysisResult from "./AIAnalysisResult";
 
 const statusIcons = {
   pending: Clock,
@@ -153,18 +154,31 @@ export default function OrdersTable({
   };
 
   const handleAnalyzeOrder = async (order: OrderType) => {
+    // 先设置订单和打开对话框
     setSelectedOrder(order);
-    setIsAnalyzing(true);
+    setIsAnalyzing(false); // 先确保状态复位
+    setShowAnalysis(true);
     
-    try {
-      const result = await aiService.analyzeOrder(order);
-      setAnalysisResult({ [order.id]: result });
-      setShowAnalysis(true);
-    } catch (error) {
-      console.error("AI分析失败:", error);
-    } finally {
-      setIsAnalyzing(false);
-    }
+    // 稍微延迟后开始分析，确保UI已经渲染
+    setTimeout(() => {
+      console.log("启动分析状态...");
+      setIsAnalyzing(true);
+      
+      // 模拟API调用
+      setTimeout(async () => {
+        try {
+          const result = await aiService.analyzeOrder(order);
+          setAnalysisResult({ [order.id]: result });
+        } catch (error) {
+          console.error("AI分析失败:", error);
+        } finally {
+          // 完成后延迟关闭分析状态
+          setTimeout(() => {
+            setIsAnalyzing(false);
+          }, 15000); // 保持足够时间显示分析过程
+        }
+      }, 500);
+    }, 100);
   };
 
   const handleBatchAnalyze = async () => {
@@ -509,111 +523,27 @@ export default function OrdersTable({
         </Table>
       </div>
 
-      <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={showAnalysis} onOpenChange={(open) => {
+        setShowAnalysis(open);
+        if (!open) {
+          // 关闭对话框时重置状态
+          setIsAnalyzing(false);
+        }
+      }}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-blue-500" />
               AI 智能分析结果
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {isAnalyzing ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground">正在分析订单数据...</p>
-              </div>
-            ) : analysisResult && Object.entries(analysisResult).map(([orderId, result]) => {
-              const order = orders.find(o => o.id === orderId);
-              return (
-                <div key={orderId} className="space-y-4 p-4 border rounded-lg bg-slate-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">订单 {order?.order_number}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {order?.product_name} · {order?.customer}
-                      </p>
-                    </div>
-                    <Badge
-                      className={cn(
-                        "px-3 py-1 rounded-md",
-                        result.riskScore > 0.5 ? "bg-red-100 text-red-800" : 
-                        result.riskScore > 0.3 ? "bg-amber-100 text-amber-800" : 
-                        "bg-green-100 text-green-800"
-                      )}
-                    >
-                      风险评分: {(result.riskScore * 10).toFixed(1)}
-                    </Badge>
-                  </div>
-
-                  <div className="grid gap-4 mt-4">
-                    <div>
-                      <h5 className="font-medium mb-2 text-slate-800">分析发现</h5>
-                      <div className="space-y-3">
-                        {result.findings.map((finding, index) => (
-                          <div key={index} className={cn(
-                            "p-3 rounded-md",
-                            finding.severity === 'high' ? "bg-red-50 border border-red-100" :
-                            finding.severity === 'medium' ? "bg-amber-50 border border-amber-100" :
-                            "bg-blue-50 border border-blue-100"
-                          )}>
-                            <div className="flex items-center gap-2 mb-1">
-                              {finding.severity === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                              {finding.severity === 'medium' && <AlertTriangle className="h-4 w-4 text-amber-500" />}
-                              {finding.severity === 'low' && <AlertTriangle className="h-4 w-4 text-blue-500" />}
-                              <span className="font-medium">{finding.category}</span>
-                            </div>
-                            <p className="text-sm mb-2">{finding.description}</p>
-                            {finding.recommendations.length > 0 && (
-                              <div className="text-sm">
-                                <span className="font-medium">建议: </span>
-                                <ul className="list-disc list-inside space-y-1 pl-1 mt-1">
-                                  {finding.recommendations.map((rec, idx) => (
-                                    <li key={idx}>{rec}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h5 className="font-medium mb-2 text-slate-800">总结</h5>
-                      <p className="text-sm p-3 bg-white rounded-md border">{result.summary}</p>
-                    </div>
-
-                    {result.relatedOrders && result.relatedOrders.length > 0 && (
-                      <div>
-                        <h5 className="font-medium mb-2 text-slate-800">相关订单</h5>
-                        <div className="grid grid-cols-2 gap-2">
-                          {result.relatedOrders.map((orderNum, idx) => (
-                            <Badge key={idx} variant="outline" className="justify-start">
-                              {orderNum}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => setShowAnalysis(false)}>
-              关闭
-            </Button>
-            <Button 
-              variant="default" 
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-              onClick={handleExportAnalysis}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              导出分析报告
-            </Button>
-          </div>
+          <AIAnalysisResult
+            order={selectedOrder}
+            analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
+            onExport={handleExportAnalysis}
+            onClose={() => setShowAnalysis(false)}
+            isAnalyzing={isAnalyzing}
+          />
         </DialogContent>
       </Dialog>
 
