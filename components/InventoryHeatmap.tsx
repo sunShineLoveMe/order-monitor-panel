@@ -32,7 +32,7 @@ export function InventoryHeatmap({ className }: InventoryHeatmapProps) {
     try {
       setLoading(true);
       const data = await DatabaseService.getInventory(filters);
-      setInventory(data);
+      // setInventory(data);
     } catch (error) {
       console.error("Error loading inventory:", error);
     } finally {

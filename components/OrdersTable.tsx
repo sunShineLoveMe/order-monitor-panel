@@ -53,14 +53,29 @@ const statusColors = {
 };
 
 interface OrdersTableProps {
-  type?: "inbound" | "outbound";
+  type?: 'inbound' | 'outbound';
   className?: string;
+  orders?: Order[];
+  loading?: boolean;
+  currentPage?: number;
+  totalOrders?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
 }
 
-export default function OrdersTable({ type, className }: OrdersTableProps) {
-  const [orders, setOrders] = useState<OrderType[]>([]);
+export default function OrdersTable({ 
+  type, 
+  className,
+  orders: externalOrders,
+  loading: externalLoading,
+  currentPage: externalCurrentPage,
+  totalOrders: externalTotalOrders,
+  pageSize: externalPageSize,
+  onPageChange: externalOnPageChange
+}: OrdersTableProps) {
+  const [orders, setOrders] = useState<OrderType[]>(externalOrders || []);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(externalLoading || false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<Record<string, OrderAnalysis>>({});
   const [analyzing, setAnalyzing] = useState(false);
@@ -75,26 +90,39 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
   const [selectedResolution, setSelectedResolution] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
   const [showAnomalies, setShowAnomalies] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const pageSize = 10;
+  const [currentPage, setCurrentPage] = useState(externalCurrentPage || 1);
+  const [totalOrders, setTotalOrders] = useState(externalTotalOrders || 0);
+  const pageSize = externalPageSize || 10;
 
   useEffect(() => {
-    loadOrders();
-    // 订阅实时更新
-    const channel = supabase
-      .channel('orders-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'orders' }, 
-        () => loadOrders())
-      .subscribe();
+    if (externalOrders) {
+      setOrders(externalOrders);
+    } else {
+      loadOrders();
+    }
+  }, [type, currentPage, externalOrders]);
 
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [type, currentPage]);
+  useEffect(() => {
+    if (externalLoading !== undefined) {
+      setLoading(externalLoading);
+    }
+  }, [externalLoading]);
+
+  useEffect(() => {
+    if (externalCurrentPage !== undefined) {
+      setCurrentPage(externalCurrentPage);
+    }
+  }, [externalCurrentPage]);
+
+  useEffect(() => {
+    if (externalTotalOrders !== undefined) {
+      setTotalOrders(externalTotalOrders);
+    }
+  }, [externalTotalOrders]);
 
   const loadOrders = async () => {
+    if (externalOrders) return;
+    
     try {
       setLoading(true);
       const result = await DatabaseService.getOrders(type, currentPage, pageSize);
@@ -125,13 +153,17 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
   };
 
   const handleAnalyzeOrder = async (order: OrderType) => {
-    setSelectedOrders(new Set([order.id]));
+    setSelectedOrder(order);
+    setIsAnalyzing(true);
     
     try {
       const result = await aiService.analyzeOrder(order);
       setAnalysisResult({ [order.id]: result });
+      setShowAnalysis(true);
     } catch (error) {
       console.error("AI分析失败:", error);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -257,19 +289,25 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (externalOnPageChange) {
+      externalOnPageChange(page);
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const getStatusColor = (status: OrderType['status']) => {
     switch (status) {
       case 'completed':
-        return 'default';
+        return 'bg-gradient-to-r from-green-50 to-green-100 text-green-700 border-green-200 hover:from-green-100 hover:to-green-200';
       case 'processing':
-        return 'secondary';
+        return 'bg-gradient-to-r from-amber-50 to-amber-100 text-amber-700 border-amber-200 hover:from-amber-100 hover:to-amber-200';
       case 'pending':
-        return 'destructive';
+        return 'bg-gradient-to-r from-yellow-50 to-yellow-100 text-yellow-700 border-yellow-200 hover:from-yellow-100 hover:to-yellow-200';
+      case 'exception':
+        return 'bg-gradient-to-r from-red-50 to-red-100 text-red-700 border-red-200 hover:from-red-100 hover:to-red-200';
       default:
-        return 'outline';
+        return 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 border-gray-200 hover:from-gray-100 hover:to-gray-200';
     }
   };
 
@@ -281,6 +319,8 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
         return '处理中';
       case 'pending':
         return '待处理';
+      case 'exception':
+        return '异常订单';
       default:
         return status;
     }
@@ -389,17 +429,40 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                     ¥{order.value.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusColor(order.status)}>
-                      {getStatusText(order.status)}
+                    <Badge 
+                      className={cn(
+                        "px-3 py-1.5 rounded-full font-medium transition-all duration-200 ease-in-out shadow-sm hover:shadow-md",
+                        "border border-transparent backdrop-blur-sm",
+                        getStatusColor(order.status)
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {order.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {order.status === 'processing' && <Clock className="w-3.5 h-3.5 animate-spin" />}
+                        {order.status === 'pending' && <Clock className="w-3.5 h-3.5" />}
+                        {order.status === 'exception' && <AlertTriangle className="w-3.5 h-3.5" />}
+                        {getStatusText(order.status)}
+                      </div>
                     </Badge>
                   </TableCell>
                   <TableCell>
                     {new Date(order.date).toLocaleString("zh-CN")}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={order.type === 'inbound' ? 'default' : 'secondary'}>
-                      {order.type === 'inbound' ? '入库' : '出库'}
-                    </Badge>
+                    {order.status === 'exception' ? (
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-1.5 h-8"
+                        onClick={() => handleAnalyzeOrder(order)}
+                      >
+                        <BrainCircuit className="w-3.5 h-3.5" />
+                        AI智能分析
+                      </Button>
+                    ) : (
+                      <Badge variant={order.type === 'inbound' ? 'default' : 'secondary'}>
+                        {order.type === 'inbound' ? '入库' : '出库'}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -450,15 +513,20 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangleIcon className="h-5 w-5 text-yellow-500" />
-              AI 分析结果
+              <BrainCircuit className="h-5 w-5 text-blue-500" />
+              AI 智能分析结果
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {analysisResult && Object.entries(analysisResult).map(([orderId, result]: [string, any]) => {
+            {isAnalyzing ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-sm text-muted-foreground">正在分析订单数据...</p>
+              </div>
+            ) : analysisResult && Object.entries(analysisResult).map(([orderId, result]) => {
               const order = orders.find(o => o.id === orderId);
               return (
-                <div key={orderId} className="space-y-4 p-4 border rounded-lg">
+                <div key={orderId} className="space-y-4 p-4 border rounded-lg bg-slate-50">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-medium">订单 {order?.order_number}</h4>
@@ -467,53 +535,64 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                       </p>
                     </div>
                     <Badge
-                      variant={
-                        result.riskLevel === "low"
-                          ? "default"
-                          : result.riskLevel === "medium"
-                          ? "secondary"
-                          : "destructive"
-                      }
+                      className={cn(
+                        "px-3 py-1 rounded-md",
+                        result.riskScore > 0.5 ? "bg-red-100 text-red-800" : 
+                        result.riskScore > 0.3 ? "bg-amber-100 text-amber-800" : 
+                        "bg-green-100 text-green-800"
+                      )}
                     >
-                      风险等级: {result.riskLevel}
+                      风险评分: {(result.riskScore * 10).toFixed(1)}
                     </Badge>
                   </div>
 
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 mt-4">
                     <div>
-                      <h5 className="font-medium mb-2">主要发现</h5>
-                      <ul className="list-disc list-inside space-y-1">
-                        {result.insights.map((insight: string, index: number) => (
-                          <li key={index} className="text-sm">{insight}</li>
+                      <h5 className="font-medium mb-2 text-slate-800">分析发现</h5>
+                      <div className="space-y-3">
+                        {result.findings.map((finding, index) => (
+                          <div key={index} className={cn(
+                            "p-3 rounded-md",
+                            finding.severity === 'high' ? "bg-red-50 border border-red-100" :
+                            finding.severity === 'medium' ? "bg-amber-50 border border-amber-100" :
+                            "bg-blue-50 border border-blue-100"
+                          )}>
+                            <div className="flex items-center gap-2 mb-1">
+                              {finding.severity === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                              {finding.severity === 'medium' && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                              {finding.severity === 'low' && <AlertTriangle className="h-4 w-4 text-blue-500" />}
+                              <span className="font-medium">{finding.category}</span>
+                            </div>
+                            <p className="text-sm mb-2">{finding.description}</p>
+                            {finding.recommendations.length > 0 && (
+                              <div className="text-sm">
+                                <span className="font-medium">建议: </span>
+                                <ul className="list-disc list-inside space-y-1 pl-1 mt-1">
+                                  {finding.recommendations.map((rec, idx) => (
+                                    <li key={idx}>{rec}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
 
                     <div>
-                      <h5 className="font-medium mb-2">建议措施</h5>
-                      <ul className="list-disc list-inside space-y-1">
-                        {result.recommendations.map((rec: string, index: number) => (
-                          <li key={index} className="text-sm">{rec}</li>
-                        ))}
-                      </ul>
+                      <h5 className="font-medium mb-2 text-slate-800">总结</h5>
+                      <p className="text-sm p-3 bg-white rounded-md border">{result.summary}</p>
                     </div>
 
-                    {result.potentialImpact && (
+                    {result.relatedOrders && result.relatedOrders.length > 0 && (
                       <div>
-                        <h5 className="font-medium mb-2">潜在影响</h5>
-                        <div className="grid gap-2">
-                          <div className="text-sm">
-                            <span className="font-medium">财务影响: </span>
-                            ¥{result.potentialImpact.financial.toLocaleString()}
-                          </div>
-                          <div className="text-sm">
-                            <span className="font-medium">运营影响: </span>
-                            {result.potentialImpact.operational}
-                          </div>
-                          <div className="text-sm">
-                            <span className="font-medium">客户满意度: </span>
-                            {result.potentialImpact.customerSatisfaction}
-                          </div>
+                        <h5 className="font-medium mb-2 text-slate-800">相关订单</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          {result.relatedOrders.map((orderNum, idx) => (
+                            <Badge key={idx} variant="outline" className="justify-start">
+                              {orderNum}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -521,6 +600,19 @@ export default function OrdersTable({ type, className }: OrdersTableProps) {
                 </div>
               );
             })}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setShowAnalysis(false)}>
+              关闭
+            </Button>
+            <Button 
+              variant="default" 
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+              onClick={handleExportAnalysis}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              导出分析报告
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

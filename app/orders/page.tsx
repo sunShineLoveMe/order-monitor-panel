@@ -8,6 +8,7 @@ import OrdersTable from '@/components/OrdersTable';
 import { OrderStats } from '@/components/orders/OrderStats';
 import { OrderChart } from '@/components/orders/OrderChart';
 import { DailyOrderStats } from "@/components/DailyOrderStats";
+import { mockOrders } from '@/lib/data';
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -26,9 +27,18 @@ export default function OrdersPage() {
     try {
       setLoading(true);
       const type = activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound';
-      const result = await DatabaseService.getOrders(type, currentPage, pageSize);
-      setOrders(result.orders);
-      setTotalOrders(result.total);
+      // 在开发阶段使用 mockOrders 数据
+      if (process.env.NODE_ENV === 'development') {
+        const filteredOrders = type 
+          ? mockOrders.filter((order: Order) => order.type === type)
+          : mockOrders;
+        setOrders(filteredOrders);
+        setTotalOrders(filteredOrders.length);
+      } else {
+        const result = await DatabaseService.getOrders(type, currentPage, pageSize);
+        setOrders(result.orders);
+        setTotalOrders(result.total);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载订单失败');
     } finally {
@@ -59,9 +69,16 @@ export default function OrdersPage() {
             
             <TabPanels>
               <TabPanel>
-                {/* <OrderStats orders={orders} /> */}
-                {/* <OrderChart orders={orders} /> */}
-                <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
+                <OrdersTable 
+                  type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} 
+                  orders={orders}
+                  loading={loading}
+                  currentPage={currentPage}
+                  totalOrders={totalOrders}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  className=""
+                />
               </TabPanel>
             </TabPanels>
           </TabGroup>

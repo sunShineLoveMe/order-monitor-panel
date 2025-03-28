@@ -94,6 +94,101 @@ export const mockOrders: OrderType[] = [
     created_at: "2024-03-01T00:00:00Z",
     updated_at: "2024-03-01T00:00:00Z"
   },
+  {
+    id: "e1",
+    order_number: "IN-2024-E001",
+    customer: "苹果公司",
+    type: "inbound",
+    status: "exception",
+    product_name: "iPhone 15 Pro Max",
+    quantity: 50,
+    value: 75000.00,
+    date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    exceptions: [{
+      type: "quality_issue",
+      description: "收到的产品外包装有明显损坏",
+      status: "open",
+      created_at: new Date().toISOString()
+    }]
+  },
+  {
+    id: "e2",
+    order_number: "OUT-2024-E001",
+    customer: "京东自营",
+    type: "outbound",
+    status: "exception",
+    product_name: "MacBook Pro 16",
+    quantity: 30,
+    value: 450000.00,
+    date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    exceptions: [{
+      type: "delivery_delay",
+      description: "物流延迟超过48小时",
+      status: "open",
+      created_at: new Date().toISOString()
+    }]
+  },
+  {
+    id: "e3",
+    order_number: "IN-2024-E002",
+    customer: "华为公司",
+    type: "inbound",
+    status: "exception",
+    product_name: "Mate 60 Pro+",
+    quantity: 100,
+    value: 899900.00,
+    date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    exceptions: [{
+      type: "inventory_mismatch",
+      description: "实际到货数量少于订单数量20台",
+      status: "open",
+      created_at: new Date().toISOString()
+    }]
+  },
+  {
+    id: "e4",
+    order_number: "OUT-2024-E002",
+    customer: "天猫旗舰店",
+    type: "outbound",
+    status: "exception",
+    product_name: "AirPods Pro 2",
+    quantity: 200,
+    value: 299800.00,
+    date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    exceptions: [{
+      type: "wrong_product",
+      description: "发货产品型号与订单不符",
+      status: "open",
+      created_at: new Date().toISOString()
+    }]
+  },
+  {
+    id: "e5",
+    order_number: "IN-2024-E003",
+    customer: "小米公司",
+    type: "inbound",
+    status: "exception",
+    product_name: "小米14 Ultra",
+    quantity: 80,
+    value: 519920.00,
+    date: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    exceptions: [{
+      type: "damaged_goods",
+      description: "部分产品在运输过程中受损",
+      status: "open",
+      created_at: new Date().toISOString()
+    }]
+  }
 ];
 
 export const mockInventoryData: InventoryItem[] = [
