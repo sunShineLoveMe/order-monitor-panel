@@ -7,6 +7,7 @@ import { Order } from '@/lib/types';
 import OrdersTable from '@/components/OrdersTable';
 import { OrderStats } from '@/components/orders/OrderStats';
 import { OrderChart } from '@/components/orders/OrderChart';
+import { DailyOrderStats } from "@/components/DailyOrderStats";
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -40,26 +41,32 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <Title>订单管理</Title>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">订单管理</h2>
+      </div>
       
-      <Card>
-        <TabGroup index={activeTab} onIndexChange={setActiveTab}>
-          <TabList>
-            <Tab>全部订单</Tab>
-            <Tab>入库订单</Tab>
-            <Tab>出库订单</Tab>
-          </TabList>
-          
-          <TabPanels>
-            <TabPanel>
-              <OrderStats orders={orders} />
-              <OrderChart orders={orders} />
-              <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
-            </TabPanel>
-          </TabPanels>
-        </TabGroup>
-      </Card>
+      <div className="grid gap-4">
+        <DailyOrderStats />
+        
+        <Card>
+          <TabGroup index={activeTab} onIndexChange={setActiveTab}>
+            <TabList>
+              <Tab>全部订单</Tab>
+              <Tab>入库订单</Tab>
+              <Tab>出库订单</Tab>
+            </TabList>
+            
+            <TabPanels>
+              <TabPanel>
+                <OrderStats orders={orders} />
+                <OrderChart orders={orders} />
+                <OrdersTable type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} />
+              </TabPanel>
+            </TabPanels>
+          </TabGroup>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import AIPredictionCard from "@/components/AIPredictionCard";
 import { InventoryHeatmap } from "@/components/InventoryHeatmap";
 import { SalesTrendChart } from "@/components/SalesTrendChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AISalesProfitForecast } from "@/components/AISalesProfitForecast";
 
 export default function Home() {
   return (
@@ -163,7 +164,9 @@ export default function Home() {
               </CardContent>
             </Card>
             
-            <AIInsightCard />
+            <div className="col-span-2">
+              <AISalesProfitForecast />
+            </div>
           </div>
         </TabsContent>
         
