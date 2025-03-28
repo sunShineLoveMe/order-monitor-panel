@@ -581,20 +581,22 @@ export default function OrdersTable({
           setIsAnalyzing(false);
         }
       }}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] h-auto overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-blue-500" />
               AI 智能分析结果
             </DialogTitle>
           </DialogHeader>
-          <AIAnalysisResult
-            order={selectedOrder}
-            analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
-            onExport={handleExportAnalysis}
-            onClose={() => setShowAnalysis(false)}
-            isAnalyzing={isAnalyzing}
-          />
+          <div className="flex-1 overflow-hidden">
+            <AIAnalysisResult
+              order={selectedOrder}
+              analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
+              onExport={handleExportAnalysis}
+              onClose={() => setShowAnalysis(false)}
+              isAnalyzing={isAnalyzing}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

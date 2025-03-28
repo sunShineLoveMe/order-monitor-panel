@@ -284,44 +284,44 @@ export default function AIAnalysisResult({
     return (
       <div className="mt-4 border rounded-lg p-4 bg-white">
         <h5 className="font-medium mb-3 text-slate-800">风险评估图表</h5>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col md:flex-row items-center gap-8">
           {/* 价格异常图表 */}
-          <div className="relative h-60 w-full mb-4">
+          <div className="relative h-48 w-full md:w-1/2 mb-4">
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-full h-40 flex items-end justify-around px-4">
                 <div className="relative">
-                  <div className="w-16 bg-blue-500 rounded-t-md" style={{ height: '60px' }}></div>
+                  <div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '60px' }}></div>
                   <div className="absolute -bottom-6 left-0 right-0 text-center text-xs">1月</div>
                 </div>
                 <div className="relative">
-                  <div className="w-16 bg-blue-500 rounded-t-md" style={{ height: '80px' }}></div>
+                  <div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '80px' }}></div>
                   <div className="absolute -bottom-6 left-0 right-0 text-center text-xs">2月</div>
                 </div>
                 <div className="relative">
-                  <div className="w-16 bg-blue-500 rounded-t-md" style={{ height: '70px' }}></div>
+                  <div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '70px' }}></div>
                   <div className="absolute -bottom-6 left-0 right-0 text-center text-xs">3月</div>
                 </div>
                 <div className="relative">
-                  <div className="w-16 bg-red-500 rounded-t-md" style={{ height: '120px' }}></div>
+                  <div className="w-12 bg-red-500 rounded-t-md" style={{ height: '120px' }}></div>
                   <div className="absolute -bottom-6 left-0 right-0 text-center text-xs">当前</div>
                 </div>
               </div>
-              <div className="absolute left-8 top-0 bottom-0 flex flex-col justify-between text-xs text-gray-600">
+              <div className="absolute left-6 top-0 bottom-0 flex flex-col justify-between text-xs text-gray-600">
                 <span>¥1500</span>
                 <span>¥1000</span>
                 <span>¥500</span>
                 <span>¥0</span>
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 text-center text-sm font-medium">
+            <div className="absolute bottom-0 left-0 right-0 text-center text-xs font-medium">
               单价比较（相同产品历史订单）
             </div>
           </div>
           
           {/* 风险评分雷达图 */}
-          <div className="mt-8 flex flex-col items-center">
-            <h5 className="font-medium mb-3 text-slate-800">风险因素分布</h5>
-            <div className="relative h-64 w-64">
+          <div className="md:w-1/2 flex flex-col items-center mt-6 md:mt-0">
+            <h5 className="font-medium mb-2 text-slate-800 text-sm">风险因素分布</h5>
+            <div className="relative h-52 w-52">
               <div className="absolute inset-0 rounded-full border border-gray-200"></div>
               <div className="absolute inset-[10%] rounded-full border border-gray-200"></div>
               <div className="absolute inset-[20%] rounded-full border border-gray-200"></div>
@@ -352,11 +352,11 @@ export default function AIAnalysisResult({
               </svg>
               
               {/* 雷达图标签 */}
-              <div className="absolute -top-4 left-[50%] transform -translate-x-1/2 text-xs font-medium text-gray-700">价格异常</div>
-              <div className="absolute top-[50%] -right-16 transform -translate-y-1/2 text-xs font-medium text-gray-700">供应链风险</div>
-              <div className="absolute -bottom-4 left-[50%] transform -translate-x-1/2 text-xs font-medium text-gray-700">交付延迟</div>
-              <div className="absolute top-[50%] -left-14 transform -translate-y-1/2 text-xs font-medium text-gray-700">客户信用</div>
-              <div className="absolute top-[15%] right-[15%] text-xs font-medium text-gray-700">数量异常</div>
+              <div className="absolute -top-3 left-[50%] transform -translate-x-1/2 text-[10px] font-medium text-gray-700">价格异常</div>
+              <div className="absolute top-[50%] -right-14 transform -translate-y-1/2 text-[10px] font-medium text-gray-700">供应链风险</div>
+              <div className="absolute -bottom-3 left-[50%] transform -translate-x-1/2 text-[10px] font-medium text-gray-700">交付延迟</div>
+              <div className="absolute top-[50%] -left-12 transform -translate-y-1/2 text-[10px] font-medium text-gray-700">客户信用</div>
+              <div className="absolute top-[15%] right-[15%] text-[10px] font-medium text-gray-700">数量异常</div>
             </div>
           </div>
         </div>
@@ -475,106 +475,108 @@ export default function AIAnalysisResult({
           )}
         </TabsContent>
 
-        <TabsContent value="result" className="space-y-4 mt-2">
-          {analysisResult && order ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-medium">订单 {order.order_number}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {order.product_name} · {order.customer}
-                  </p>
-                </div>
-                <Badge
-                  className={cn(
-                    "px-3 py-1 rounded-md",
-                    analysisResult?.riskScore > 0.5 ? "bg-red-100 text-red-800" : 
-                    analysisResult?.riskScore > 0.3 ? "bg-amber-100 text-amber-800" : 
-                    "bg-green-100 text-green-800"
-                  )}
-                >
-                  风险评分: {analysisResult?.riskScore ? (analysisResult.riskScore * 10).toFixed(1) : "3.0"}
-                </Badge>
-              </div>
-
-              <div className="grid gap-4">
-                <div>
-                  <h5 className="font-medium mb-2 text-slate-800 flex items-center">
-                    <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" />
-                    分析发现 ({currentFindingIndex}/{analysisResult?.findings?.length || 0})
-                  </h5>
+        <TabsContent value="result" className="h-[500px] relative overflow-hidden mt-2">
+          <div className="absolute inset-0 overflow-y-auto pr-2">
+            {analysisResult && order ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-start">
                   <div>
-                    {streamedFindings.length > 0 ? (
-                      streamedFindings.map((findingJson, index) => 
-                        renderFinding(findingJson, index)
-                      )
-                    ) : isAnalyzing ? (
-                      <div className="flex justify-center my-4">
-                        <div className="animate-pulse flex space-x-1">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground py-4">
-                        暂无分析发现
-                      </div>
-                    )}
-                    
-                    {streamedFindings.length > 0 && streamedFindings.length < (analysisResult?.findings?.length || 0) && (
-                      <div className="flex justify-center my-2">
-                        <div className="animate-pulse flex space-x-1">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 分析总结部分 */}
-                {(streamedFindings.length === (analysisResult?.findings?.length || 0) || streamingComplete) && (
-                  <div>
-                    <h5 className="font-medium mb-2 text-slate-800 flex items-center">
-                      <FileText className="mr-2 h-4 w-4 text-blue-500" />
-                      分析总结
-                    </h5>
-                    <p className="text-sm p-3 bg-white rounded-md border min-h-[60px]">
-                      {streamedSummary || '正在生成总结...'}
-                      {streamedSummary && streamedSummary.length < (analysisResult?.summary?.length || 0) && !streamingComplete && (
-                        <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-0.5"></span>
-                      )}
+                    <h4 className="font-medium">订单 {order.order_number}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {order.product_name} · {order.customer}
                     </p>
                   </div>
-                )}
+                  <Badge
+                    className={cn(
+                      "px-3 py-1 rounded-md",
+                      analysisResult?.riskScore > 0.5 ? "bg-red-100 text-red-800" : 
+                      analysisResult?.riskScore > 0.3 ? "bg-amber-100 text-amber-800" : 
+                      "bg-green-100 text-green-800"
+                    )}
+                  >
+                    风险评分: {analysisResult?.riskScore ? (analysisResult.riskScore * 10).toFixed(1) : "3.0"}
+                  </Badge>
+                </div>
 
-                {/* 图表部分 */}
-                {(showChart || streamingComplete) && renderChart()}
-
-                {analysisResult?.relatedOrders && Array.isArray(analysisResult.relatedOrders) && analysisResult.relatedOrders.length > 0 && (
+                <div className="grid gap-4">
                   <div>
                     <h5 className="font-medium mb-2 text-slate-800 flex items-center">
-                      <NetworkIcon className="mr-2 h-4 w-4 text-purple-500" />
-                      相关订单
+                      <AlertTriangle className="mr-2 h-4 w-4 text-amber-500" />
+                      分析发现 ({currentFindingIndex}/{analysisResult?.findings?.length || 0})
                     </h5>
-                    <div className="grid grid-cols-2 gap-2">
-                      {analysisResult?.relatedOrders?.map((orderNum, idx) => (
-                        <Badge key={idx} variant="outline" className="justify-start">
-                          {orderNum}
-                        </Badge>
-                      ))}
+                    <div>
+                      {streamedFindings.length > 0 ? (
+                        streamedFindings.map((findingJson, index) => 
+                          renderFinding(findingJson, index)
+                        )
+                      ) : isAnalyzing ? (
+                        <div className="flex justify-center my-4">
+                          <div className="animate-pulse flex space-x-1">
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-muted-foreground py-4">
+                          暂无分析发现
+                        </div>
+                      )}
+                      
+                      {streamedFindings.length > 0 && streamedFindings.length < (analysisResult?.findings?.length || 0) && (
+                        <div className="flex justify-center my-2">
+                          <div className="animate-pulse flex space-x-1">
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  {/* 分析总结部分 */}
+                  {(streamedFindings.length === (analysisResult?.findings?.length || 0) || streamingComplete) && (
+                    <div>
+                      <h5 className="font-medium mb-2 text-slate-800 flex items-center">
+                        <FileText className="mr-2 h-4 w-4 text-blue-500" />
+                        分析总结
+                      </h5>
+                      <p className="text-sm p-3 bg-white rounded-md border min-h-[60px]">
+                        {streamedSummary || '正在生成总结...'}
+                        {streamedSummary && streamedSummary.length < (analysisResult?.summary?.length || 0) && !streamingComplete && (
+                          <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-0.5"></span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 图表部分 */}
+                  {(showChart || streamingComplete) && renderChart()}
+
+                  {analysisResult?.relatedOrders && Array.isArray(analysisResult.relatedOrders) && analysisResult.relatedOrders.length > 0 && (
+                    <div>
+                      <h5 className="font-medium mb-2 text-slate-800 flex items-center">
+                        <NetworkIcon className="mr-2 h-4 w-4 text-purple-500" />
+                        相关订单
+                      </h5>
+                      <div className="grid grid-cols-2 gap-2">
+                        {analysisResult?.relatedOrders?.map((orderNum, idx) => (
+                          <Badge key={idx} variant="outline" className="justify-start">
+                            {orderNum}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-6">
-              {isAnalyzing ? "AI正在生成分析结果..." : "等待分析结果..."}
-            </div>
-          )}
+            ) : (
+              <div className="text-center text-muted-foreground py-6">
+                {isAnalyzing ? "AI正在生成分析结果..." : "等待分析结果..."}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
