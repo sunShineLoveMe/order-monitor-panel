@@ -8,18 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Plus, Save, AlertCircle, Check, X } from "lucide-react";
-import { ModelConfig, ModelProvider, modelProviders, aiService } from "@/lib/services/ai";
+import { Trash2, Plus, Save, AlertCircle, Check, X, Database } from "lucide-react";
+import { ModelConfig, ModelProvider, modelProviders, EmbeddingModelConfig, embeddingModels, aiService } from "@/lib/services/ai";
 
 export default function ModelSettingsManager() {
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
+  const [embeddingConfigs, setEmbeddingConfigs] = useState<EmbeddingModelConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("models");
   const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
+  const [editingEmbedding, setEditingEmbedding] = useState<EmbeddingModelConfig | null>(null);
   const [testStatus, setTestStatus] = useState<{id: string, status: 'idle' | 'loading' | 'success' | 'error', message?: string}>({id: '', status: 'idle'});
 
   // 页面加载时获取已有的模型配置
   useEffect(() => {
+    // 加载聊天模型配置
     const configs = aiService.getModelConfigs();
     if (configs && configs.length > 0) {
       setModelConfigs(configs);
@@ -46,8 +49,18 @@ export default function ModelSettingsManager() {
         }
       ]);
     }
+
+    // 加载Embedding模型配置
+    const embConfigs = aiService.getEmbeddingConfigs();
+    if (embConfigs && embConfigs.length > 0) {
+      setEmbeddingConfigs(embConfigs);
+    } else {
+      // 如果没有配置，使用默认配置
+      setEmbeddingConfigs([...embeddingModels]);
+    }
   }, []);
 
+  // 添加新的聊天模型
   const handleAddModel = () => {
     const newModel: ModelConfig = {
       id: `model-${Date.now()}`,
@@ -71,6 +84,24 @@ export default function ModelSettingsManager() {
     setEditingModel(newModel);
   };
 
+  // 添加新的Embedding模型
+  const handleAddEmbedding = () => {
+    const newModel: EmbeddingModelConfig = {
+      id: `embedding-${Date.now()}`,
+      name: "新Embedding模型",
+      provider: "openai",
+      model: "text-embedding-ada-002",
+      dimensions: 1536,
+      maxInputLength: 8192,
+      isDefault: false,
+      apiKey: "",
+      baseUrl: ""
+    };
+    setEmbeddingConfigs([...embeddingConfigs, newModel]);
+    setEditingEmbedding(newModel);
+  };
+
+  // 删除聊天模型
   const handleDeleteModel = (id: string) => {
     setModelConfigs(modelConfigs.filter(config => config.id !== id));
     if (editingModel?.id === id) {
@@ -78,10 +109,25 @@ export default function ModelSettingsManager() {
     }
   };
 
+  // 删除Embedding模型
+  const handleDeleteEmbedding = (id: string) => {
+    setEmbeddingConfigs(embeddingConfigs.filter(config => config.id !== id));
+    if (editingEmbedding?.id === id) {
+      setEditingEmbedding(null);
+    }
+  };
+
+  // 选择编辑聊天模型
   const handleEditModel = (model: ModelConfig) => {
     setEditingModel(model);
   };
 
+  // 选择编辑Embedding模型
+  const handleEditEmbedding = (model: EmbeddingModelConfig) => {
+    setEditingEmbedding(model);
+  };
+
+  // 更新聊天模型
   const handleUpdateModel = (updatedModel: ModelConfig) => {
     // 如果设置为默认模型，将其他模型设为非默认
     let updatedConfigs = [...modelConfigs];
@@ -100,6 +146,26 @@ export default function ModelSettingsManager() {
     );
   };
 
+  // 更新Embedding模型
+  const handleUpdateEmbedding = (updatedModel: EmbeddingModelConfig) => {
+    // 如果设置为默认模型，将其他模型设为非默认
+    let updatedConfigs = [...embeddingConfigs];
+    if (updatedModel.isDefault) {
+      updatedConfigs = updatedConfigs.map(config => ({
+        ...config,
+        isDefault: config.id === updatedModel.id
+      }));
+    }
+    
+    // 更新模型配置
+    setEmbeddingConfigs(
+      updatedConfigs.map(config => 
+        config.id === updatedModel.id ? updatedModel : config
+      )
+    );
+  };
+
+  // 更改聊天模型属性
   const handleModelChange = (field: string, value: string | boolean | number | object) => {
     if (!editingModel) return;
     
@@ -112,11 +178,28 @@ export default function ModelSettingsManager() {
     handleUpdateModel(updated);
   };
 
+  // 更改Embedding模型属性
+  const handleEmbeddingChange = (field: string, value: string | boolean | number) => {
+    if (!editingEmbedding) return;
+    
+    const updated = {
+      ...editingEmbedding,
+      [field]: value
+    };
+    
+    setEditingEmbedding(updated);
+    handleUpdateEmbedding(updated);
+  };
+
+  // 保存所有模型配置
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // 调用 AIService 保存模型配置
+      // 保存聊天模型配置
       aiService.updateModelConfigs(modelConfigs);
+      
+      // 保存Embedding模型配置
+      aiService.updateEmbeddingConfigs(embeddingConfigs);
       
       // 显示成功消息
       alert("模型配置保存成功");
@@ -128,11 +211,12 @@ export default function ModelSettingsManager() {
     }
   };
 
+  // 获取聊天模型提供商信息
   const getProviderByID = (id: string) => {
     return modelProviders.find(provider => provider.id === id) || modelProviders[0];
   };
 
-  // 测试模型API连接
+  // 测试聊天模型API连接
   const handleTestConnection = async () => {
     if (!editingModel) return;
     
@@ -163,24 +247,57 @@ export default function ModelSettingsManager() {
     }
   };
 
+  // 测试Embedding模型API连接
+  const handleTestEmbeddingConnection = async () => {
+    if (!editingEmbedding) return;
+    
+    setTestStatus({id: editingEmbedding.id, status: 'loading'});
+    try {
+      // 使用AIService测试连接
+      const result = await aiService.testEmbeddingConnection(editingEmbedding);
+      
+      if (result.success) {
+        setTestStatus({
+          id: editingEmbedding.id, 
+          status: 'success', 
+          message: result.message
+        });
+      } else {
+        setTestStatus({
+          id: editingEmbedding.id, 
+          status: 'error', 
+          message: result.message
+        });
+      }
+    } catch (error) {
+      setTestStatus({
+        id: editingEmbedding.id, 
+        status: 'error', 
+        message: `测试出错: ${error instanceof Error ? error.message : '未知错误'}`
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>AI模型设置</CardTitle>
         <CardDescription>
-          配置连接到不同AI模型的API设置，支持OpenAI、Claude、通义千问等多模型
+          配置连接到不同AI模型的API设置，支持聊天模型和Embedding模型
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="models">模型配置</TabsTrigger>
+            <TabsTrigger value="models">聊天模型</TabsTrigger>
+            <TabsTrigger value="embeddings">Embedding模型</TabsTrigger>
             <TabsTrigger value="advanced">高级设置</TabsTrigger>
           </TabsList>
           
+          {/* 聊天模型配置选项卡 */}
           <TabsContent value="models" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium">已配置的模型</h3>
+              <h3 className="text-lg font-medium">已配置的聊天模型</h3>
               <Button variant="outline" size="sm" onClick={handleAddModel}>
                 <Plus className="h-4 w-4 mr-2" />
                 添加模型
@@ -472,6 +589,219 @@ export default function ModelSettingsManager() {
             </div>
           </TabsContent>
           
+          {/* Embedding模型配置选项卡 */}
+          <TabsContent value="embeddings" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">已配置的Embedding模型</h3>
+              <Button variant="outline" size="sm" onClick={handleAddEmbedding}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加Embedding模型
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1 border rounded-md p-4">
+                <ul className="space-y-2">
+                  {embeddingConfigs.map(config => (
+                    <li 
+                      key={config.id}
+                      className={`p-2 rounded-md cursor-pointer flex justify-between items-center ${
+                        editingEmbedding?.id === config.id 
+                          ? 'bg-primary/10 border border-primary/30' 
+                          : 'hover:bg-secondary/50'
+                      }`}
+                      onClick={() => handleEditEmbedding(config)}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">{config.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {config.provider} · {config.dimensions}维
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {config.isDefault && (
+                          <span className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded-full">默认</span>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEmbedding(config.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                  {embeddingConfigs.length === 0 && (
+                    <li className="p-4 text-center text-muted-foreground">
+                      没有配置的Embedding模型，请点击"添加Embedding模型"按钮
+                    </li>
+                  )}
+                </ul>
+              </div>
+              
+              <div className="md:col-span-2 border rounded-md p-4">
+                {editingEmbedding ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingName">模型名称</Label>
+                        <Input 
+                          id="embeddingName"
+                          value={editingEmbedding.name}
+                          onChange={(e) => handleEmbeddingChange("name", e.target.value)}
+                          placeholder="输入便于识别的名称"
+                        />
+                        <p className="text-xs text-muted-foreground">自定义名称，便于在系统中识别</p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingProvider">模型提供商</Label>
+                        <Select 
+                          value={editingEmbedding.provider}
+                          onValueChange={(value) => handleEmbeddingChange("provider", value)}
+                        >
+                          <SelectTrigger id="embeddingProvider">
+                            <SelectValue placeholder="选择模型提供商" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="openai">OpenAI</SelectItem>
+                            <SelectItem value="huggingface">HuggingFace</SelectItem>
+                            <SelectItem value="custom">自定义</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">选择Embedding模型供应商</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingModel">模型名称/路径</Label>
+                        <Input 
+                          id="embeddingModel"
+                          value={editingEmbedding.model}
+                          onChange={(e) => handleEmbeddingChange("model", e.target.value)}
+                          placeholder="例如：text-embedding-ada-002"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          模型的标识符或路径，例如OpenAI的text-embedding-ada-002
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingDimensions">向量维度</Label>
+                        <Input 
+                          id="embeddingDimensions"
+                          type="number"
+                          value={editingEmbedding.dimensions}
+                          onChange={(e) => handleEmbeddingChange("dimensions", parseInt(e.target.value))}
+                          placeholder="例如：1536"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Embedding向量的维度大小，例如OpenAI Ada是1536维
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="embeddingApiKey">API密钥</Label>
+                      <Input 
+                        id="embeddingApiKey"
+                        type="password"
+                        value={editingEmbedding.apiKey || ""}
+                        onChange={(e) => handleEmbeddingChange("apiKey", e.target.value)}
+                        placeholder="输入API密钥"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        从提供商获取的API密钥，用于身份验证
+                      </p>
+                    </div>
+                    
+                    {(editingEmbedding.provider === 'custom' || editingEmbedding.provider === 'huggingface') && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingBaseUrl">API端点URL</Label>
+                        <Input 
+                          id="embeddingBaseUrl"
+                          value={editingEmbedding.baseUrl || ""}
+                          onChange={(e) => handleEmbeddingChange("baseUrl", e.target.value)}
+                          placeholder="例如：https://api.example.com/v1/embeddings"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          自定义API的基础URL，或HuggingFace端点地址
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="embeddingMaxInputLength">最大输入长度</Label>
+                        <Input 
+                          id="embeddingMaxInputLength"
+                          type="number"
+                          value={editingEmbedding.maxInputLength}
+                          onChange={(e) => handleEmbeddingChange("maxInputLength", parseInt(e.target.value))}
+                          placeholder="例如：8192"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          模型支持的最大输入文本长度（通常以token计算）
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="flex flex-col space-y-1.5">
+                          <Label htmlFor="testEmbeddingConnection">连接测试</Label>
+                          <Button 
+                            id="testEmbeddingConnection"
+                            variant="outline" 
+                            onClick={handleTestEmbeddingConnection}
+                            disabled={testStatus.status === 'loading' || !editingEmbedding.apiKey}
+                            className="flex items-center gap-2"
+                          >
+                            {testStatus.status === 'loading' ? 
+                              "测试中..." : 
+                              "测试API连接"
+                            }
+                          </Button>
+                          {testStatus.id === editingEmbedding.id && testStatus.status !== 'idle' && (
+                            <p className={`text-xs mt-1 ${
+                              testStatus.status === 'success' ? 'text-green-600' : 
+                              testStatus.status === 'error' ? 'text-red-600' : ''
+                            }`}>
+                              {testStatus.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="embeddingIsDefault" className="flex-1">设为默认Embedding模型</Label>
+                        <Switch 
+                          id="embeddingIsDefault" 
+                          checked={editingEmbedding.isDefault}
+                          onCheckedChange={(checked: boolean) => handleEmbeddingChange("isDefault", checked)}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        设为默认后，知识库创建和检索将使用此模型
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full min-h-[300px]">
+                    <div className="text-center text-muted-foreground">
+                      <Database className="h-10 w-10 mx-auto mb-2" />
+                      <h3 className="text-lg font-medium">选择Embedding模型</h3>
+                      <p className="text-sm mt-1">从左侧选择一个模型进行编辑，或添加新模型</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* 保留原有的高级设置选项卡 */}
           <TabsContent value="advanced" className="space-y-6">
             <Card>
               <CardHeader>

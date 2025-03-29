@@ -1,501 +1,306 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Send, Bot, User, Sparkles, Copy, Check, FileText, ExternalLink } from "lucide-react";
-import { KnowledgeBase } from "./KnowledgeBaseList";
-
-// 模拟知识库数据
-const mockKnowledgeBases: Record<string, KnowledgeBase> = {
-  'kb-001': {
-    id: 'kb-001',
-    name: '产品知识库',
-    description: '包含所有产品相关的信息、规格和使用指南',
-    createdAt: '2023-08-15T08:00:00Z',
-    updatedAt: '2023-09-20T15:30:00Z',
-    documentsCount: 27,
-    status: 'ready'
-  },
-  'kb-002': {
-    id: 'kb-002',
-    name: '供应商管理手册',
-    description: '供应商筛选、评估和合作流程的完整指南',
-    createdAt: '2023-09-01T10:15:00Z',
-    updatedAt: '2023-09-18T09:45:00Z',
-    documentsCount: 13,
-    status: 'ready'
-  },
-  'kb-003': {
-    id: 'kb-003',
-    name: '员工培训材料',
-    description: '新员工入职培训和岗位技能培训资料',
-    createdAt: '2023-07-25T14:30:00Z',
-    updatedAt: '2023-09-22T16:20:00Z',
-    documentsCount: 42,
-    status: 'ready'
-  },
-  'kb-004': {
-    id: 'kb-004',
-    name: '仓储操作指南',
-    description: '仓库管理流程、库存盘点和物流配送标准操作流程',
-    createdAt: '2023-06-10T11:45:00Z',
-    updatedAt: '2023-09-15T13:10:00Z',
-    documentsCount: 18,
-    status: 'ready'
-  }
-};
-
-interface Source {
-  id: string;
-  name: string;
-  content: string;
-  relevance: number;
-}
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Send, RefreshCw, FileText, X } from "lucide-react";
+import { KnowledgeBase } from "@/services/knowledgeBaseService";
+import { formatDateTime } from "@/lib/utils";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
-  timestamp: string;
-  sources?: Source[];
-  thinking?: string;
+  timestamp: Date;
+  sources?: {
+    title: string;
+    content: string;
+    page?: number;
+  }[];
 }
 
 interface KnowledgeBaseChatProps {
-  knowledgeBaseId: string;
+  knowledgeBase: KnowledgeBase;
   onBack: () => void;
 }
 
-export default function KnowledgeBaseChat({ 
-  knowledgeBaseId, 
-  onBack 
-}: KnowledgeBaseChatProps) {
-  const [inputMessage, setInputMessage] = useState('');
+export default function KnowledgeBaseChat({ knowledgeBase, onBack }: KnowledgeBaseChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [showThinking, setShowThinking] = useState<Record<string, boolean>>({});
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  // 获取知识库信息
-  const knowledgeBase = mockKnowledgeBases[knowledgeBaseId];
-  
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [showSources, setShowSources] = useState<Record<string, boolean>>({});
+
+  // 初始化对话
+  useEffect(() => {
+    // 初始系统消息
+    const systemMessage: Message = {
+      id: "system-1",
+      role: "system",
+      content: `这是一个基于"${knowledgeBase.name}"知识库的对话。如有问题，我将尽力从知识库中查找信息并给予回答。`,
+      timestamp: new Date(),
+    };
+
+    // 初始助手问候消息
+    const welcomeMessage: Message = {
+      id: "assistant-1",
+      role: "assistant",
+      content: `您好！我是${knowledgeBase.name}知识库的AI助手。我可以回答与此知识库相关的问题，请问有什么可以帮助您的？`,
+      timestamp: new Date(),
+    };
+
+    setMessages([systemMessage, welcomeMessage]);
+    
+    // 自动聚焦输入框
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [knowledgeBase]);
+
+  // 自动滚动到最新消息
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputMessage(e.target.value);
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-  
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
-    
-    const userMessage: Message = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      role: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-    
-    try {
-      // 调整文本域高度
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-      
-      // 模拟API延迟
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // 根据不同知识库生成不同的模拟回复
-      let responseContent = '';
-      let sources: Source[] = [];
-      let thinking = '';
-      
-      if (knowledgeBaseId === 'kb-001') {
-        responseContent = `根据产品知识库，我可以为您提供以下信息：\n\n您询问的产品规格是高度45cm，宽度30cm，深度20cm，重量约2.5kg。该产品支持WiFi和蓝牙连接，电池续航时间约8小时。\n\n产品保修期为自购买之日起12个月，如有任何质量问题，可联系我们的售后服务部门。`;
-        sources = [
-          {
-            id: 'src-001',
-            name: '产品规格说明书v2.0.pdf',
-            content: '产品尺寸：高度45cm，宽度30cm，深度20cm，重量约2.5kg。连接方式：支持WiFi 802.11 a/b/g/n/ac和蓝牙5.0。',
-            relevance: 0.95
-          },
-          {
-            id: 'src-002',
-            name: '用户操作手册.docx',
-            content: '电池续航时间约8小时，视使用场景可能有所差异。产品包含一年保修服务，自购买之日起计算。',
-            relevance: 0.87
-          }
-        ];
-        thinking = `分析用户问题：用户询问产品规格信息。
 
-步骤1：搜索知识库中的产品规格相关文档
-- 找到了"产品规格说明书v2.0.pdf"，包含产品的物理尺寸和连接方式
-- 找到了"用户操作手册.docx"，包含电池续航和保修信息
-
-步骤2：整合信息
-- 从"产品规格说明书"获取尺寸、重量和连接方式
-- 从"用户操作手册"获取电池续航和保修信息
-
-步骤3：形成回答
-- 结构化回答，包含产品物理规格、连接功能、电池续航和保修信息
-- 回答覆盖用户可能需要的主要规格信息`;
-      } else if (knowledgeBaseId === 'kb-002') {
-        responseContent = `根据我们的供应商管理手册，新供应商评估流程包括以下步骤：\n\n1. 初步资格审核：检查基本资质和合规文件\n2. 实地考察：评估生产能力和质量控制\n3. 样品评估：对提供样品进行质量测试\n4. 价格谈判：确定初步价格范围\n5. 小批量试产：评估实际生产能力\n6. 最终审批：由采购委员会最终审批\n\n整个评估周期通常需要4-6周时间。`;
-        sources = [
-          {
-            id: 'src-003',
-            name: '供应商评估标准.xlsx',
-            content: '供应商评估包括六个步骤：初步资格审核、实地考察、样品评估、价格谈判、小批量试产和最终审批。',
-            relevance: 0.97
-          },
-          {
-            id: 'src-004',
-            name: '采购流程指南.pdf',
-            content: '新供应商评估周期通常需要4-6周时间，取决于供应商响应速度和评估结果。如需加急评估，请提前两周与采购经理沟通。',
-            relevance: 0.85
-          }
-        ];
-        thinking = `分析用户问题：用户询问新供应商评估流程。
-
-步骤1：查找相关供应商评估文档
-- 找到"供应商评估标准.xlsx"，包含评估步骤信息
-- 找到"采购流程指南.pdf"，包含评估周期时间
-
-步骤2：提取评估流程步骤
-- 确认评估包含六个关键步骤
-- 每个步骤的具体内容都在文档中有描述
-
-步骤3：确认时间周期
-- 从"采购流程指南"中确认评估周期为4-6周
-
-步骤4：组织回答
-- 按顺序列出六个评估步骤
-- 包含每个步骤的简要说明
-- 补充评估周期信息`;
-      } else if (knowledgeBaseId === 'kb-003') {
-        responseContent = `根据员工培训材料，新员工入职流程如下：\n\n第一天：\n- 人事部门办理入职手续\n- IT部门配置账号和设备\n- 部门主管进行工作介绍\n\n第一周：\n- 参加公司文化培训\n- 完成安全和合规培训\n- 与团队成员会面\n\n第一个月：\n- 完成岗位技能培训\n- 参与第一个项目\n- 与直属上级进行首次绩效沟通\n\n三个月试用期结束前，将进行试用期评估面谈。`;
-        sources = [
-          {
-            id: 'src-005',
-            name: '新员工入职手册.pdf',
-            content: '新员工入职第一天需完成人事手续办理、IT账号配置和部门工作介绍。第一周需完成公司文化培训、安全合规培训和团队熟悉。',
-            relevance: 0.98
-          }
-        ];
-        thinking = `分析用户问题：用户询问新员工入职流程。
-
-步骤1：查找相关入职流程文档
-- 找到"新员工入职手册.pdf"，包含详细的入职流程
-
-步骤2：整理入职流程时间线
-- 确认入职流程分为第一天、第一周、第一个月和三个月四个时间段
-- 每个时间段有不同的关键任务和流程
-
-步骤3：提取每个阶段的关键活动
-- 第一天：人事手续、IT设置、工作介绍
-- 第一周：文化培训、安全培训、团队熟悉
-- 第一个月：技能培训、首个项目、绩效沟通
-- 三个月：试用期评估
-
-步骤4：组织回答
-- 按时间顺序组织入职流程
-- 每个时间段列出关键活动
-- 确保信息清晰易懂`;
-      } else {
-        responseContent = `根据仓储操作指南，库存盘点流程包括以下步骤：\n\n1. 盘点准备：确定盘点时间，准备盘点表\n2. 系统冻结：暂停所有入库和出库操作\n3. 实物盘点：由两人一组进行实物数量清点\n4. 数据录入：将盘点结果录入系统\n5. 差异分析：比对实际库存与系统记录的差异\n6. 差异处理：调查并解释出现差异的原因\n7. 系统调整：根据实际情况调整系统库存数据\n8. 盘点报告：生成最终盘点报告并归档\n\n根据规定，全面盘点每季度进行一次，部分重点物品每月盘点一次。`;
-        sources = [
-          {
-            id: 'src-006',
-            name: '仓库安全管理规范.pdf',
-            content: '库存盘点应遵循"双人确认"原则，由两人一组进行实物数量清点，确保盘点准确性。全面盘点每季度进行一次，部分重点物品每月盘点一次。',
-            relevance: 0.92
-          }
-        ];
-        thinking = `分析用户问题：用户询问库存盘点流程。
-
-步骤1：查找库存盘点相关文档
-- 找到"仓库安全管理规范.pdf"，包含盘点流程和频率信息
-
-步骤2：提取盘点流程步骤
-- 确认盘点流程包含8个关键步骤
-- 从准备阶段到最终报告归档的完整流程
-
-步骤3：确认盘点频率和特殊要求
-- 全面盘点：每季度一次
-- 重点物品：每月一次
-- 特殊要求："双人确认"原则
-
-步骤4：组织回答
-- 按顺序列出8个盘点步骤
-- 每个步骤包含简要说明
-- 补充盘点频率信息`;
-      }
-      
-      const botMessage: Message = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        role: 'assistant',
-        content: responseContent,
-        timestamp: new Date().toISOString(),
-        sources,
-        thinking
-      };
-      
-      setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
-      console.error('发送消息失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const copyToClipboard = (text: string, messageId: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000);
-    });
-  };
-  
-  const toggleThinking = (messageId: string) => {
-    setShowThinking(prev => ({
+  const toggleSourcesVisibility = (messageId: string) => {
+    setShowSources(prev => ({
       ...prev,
       [messageId]: !prev[messageId]
     }));
   };
-  
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit'
-    });
-  };
-  
-  return (
-    <div className="space-y-6 flex flex-col h-[calc(100vh-220px)]">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          返回
-        </Button>
-        <h2 className="text-2xl font-bold tracking-tight">
-          与「{knowledgeBase.name}」对话
-        </h2>
-      </div>
+
+  const handleSendMessage = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      // 这里是模拟的响应，实际项目中应调用后端API
+      await delay(1500);
+      const response = await mockResponse(userMessage.content, knowledgeBase);
       
-      <Card className="flex-1 flex flex-col overflow-hidden">
-        <CardHeader className="pb-3">
-          <CardTitle>知识库问答</CardTitle>
-          <CardDescription>
-            基于知识库内容进行问答，引用的来源信息可点击查看
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto px-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8">
-              <Sparkles className="h-12 w-12 text-primary/60 mb-4" />
-              <h3 className="text-lg font-medium mb-2">开始与知识库对话</h3>
-              <p className="text-sm text-muted-foreground max-w-md">
-                您可以询问与「{knowledgeBase.name}」相关的任何问题，AI将根据知识库内容为您解答
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-6 w-full max-w-md">
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
-                  onClick={() => setInputMessage('这个知识库包含哪些内容？')}
-                >
-                  <span>这个知识库包含哪些内容？</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
-                  onClick={() => setInputMessage('如何查找特定文档？')}
-                >
-                  <span>如何查找特定文档？</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
-                  onClick={() => setInputMessage('能给我最新更新的信息吗？')}
-                >
-                  <span>能给我最新更新的信息吗？</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
-                  onClick={() => setInputMessage('请概述主要流程和规范')}
-                >
-                  <span>请概述主要流程和规范</span>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                    }`}>
-                      {message.role === 'user' ? (
-                        <User className="h-5 w-5" />
-                      ) : (
-                        <Bot className="h-5 w-5" />
-                      )}
-                    </div>
-                    <div className={`space-y-2 ${message.role === 'user' ? 'text-right' : ''}`}>
-                      <div className={`px-4 py-3 rounded-lg ${
-                        message.role === 'user' 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted'
-                      }`}>
-                        <div className="whitespace-pre-wrap">{message.content}</div>
-                      </div>
-                      
-                      {/* 来源引用 */}
-                      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                        <div className="space-y-2 px-1">
-                          <p className="text-xs text-muted-foreground">
-                            来源文档：
-                          </p>
-                          <div className="space-y-1.5">
-                            {message.sources.map((source) => (
-                              <div 
-                                key={source.id}
-                                className="flex items-center gap-2 text-xs p-2 rounded border bg-background hover:bg-muted/30 transition-colors cursor-pointer"
-                                onClick={() => {
-                                  // 实际实现应打开文档详情
-                                  console.log('查看文档来源:', source.id);
-                                }}
-                              >
-                                <FileText className="h-3.5 w-3.5 text-primary" />
-                                <div className="flex-1 truncate">
-                                  <div className="font-medium truncate">{source.name}</div>
-                                  <div className="text-muted-foreground truncate">{source.content.substring(0, 60)}...</div>
-                                </div>
-                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* 思考过程 */}
-                      {message.role === 'assistant' && message.thinking && (
-                        <div className="px-1">
-                          <Button 
-                            variant="link" 
-                            size="sm" 
-                            className="h-auto p-0 text-xs"
-                            onClick={() => toggleThinking(message.id)}
-                          >
-                            {showThinking[message.id] ? '隐藏思考过程' : '查看思考过程'}
-                          </Button>
-                          
-                          {showThinking[message.id] && (
-                            <div className="mt-2 p-3 text-xs bg-muted/50 border rounded-md whitespace-pre-wrap">
-                              {message.thinking}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground justify-end">
-                        <span>{formatTimestamp(message.timestamp)}</span>
-                        
-                        {message.role === 'assistant' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => copyToClipboard(message.content, message.id)}
-                          >
-                            {copiedMessageId === message.id ? (
-                              <Check className="h-3 w-3" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="flex gap-3 max-w-[80%]">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <Bot className="h-5 w-5" />
-                    </div>
-                    <div className="px-4 py-3 rounded-lg bg-muted">
-                      <div className="flex space-x-2 items-center">
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce" />
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="pt-4 border-t">
-          <div className="flex items-end w-full gap-2">
-            <Textarea
-              ref={textareaRef}
-              value={inputMessage}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="输入问题，回车发送..."
-              className="flex-1 min-h-[60px] max-h-[200px] resize-none"
-              disabled={isLoading}
-            />
-            <Button 
-              size="icon" 
-              className="h-[60px]"
-              disabled={!inputMessage.trim() || isLoading}
-              onClick={handleSendMessage}
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+      setMessages(prev => [...prev, response]);
+    } catch (error) {
+      console.error("获取回答失败:", error);
+      
+      const errorMessage: Message = {
+        id: `assistant-error-${Date.now()}`,
+        role: "assistant",
+        content: "抱歉，处理您的请求时出现错误。请稍后再试。",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const clearChat = () => {
+    // 保留系统消息和初始欢迎消息
+    setMessages(messages.slice(0, 2));
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* 头部 */}
+      <div className="border-b p-4 bg-background sticky top-0 z-10 flex justify-between items-center">
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h2 className="text-lg font-semibold">{knowledgeBase.name}</h2>
+            <p className="text-sm text-muted-foreground">{knowledgeBase.description || "无描述"}</p>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+        <Button variant="ghost" size="sm" onClick={clearChat}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          清空对话
+        </Button>
+      </div>
+
+      {/* 消息列表 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.filter(m => m.role !== "system").map((message) => (
+          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <Card className={`max-w-[80%] ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+              <CardContent className="p-3">
+                <div className="whitespace-pre-wrap">{message.content}</div>
+
+                {/* 来源信息 */}
+                {message.sources && message.sources.length > 0 && (
+                  <div className="mt-2">
+                    <Button 
+                      variant="link" 
+                      size="sm"
+                      className="p-0 h-auto text-xs"
+                      onClick={() => toggleSourcesVisibility(message.id)}
+                    >
+                      {showSources[message.id] ? "隐藏来源" : "查看来源"}
+                    </Button>
+
+                    {showSources[message.id] && (
+                      <div className="mt-2 space-y-2 border-t pt-2">
+                        <p className="text-xs text-muted-foreground">来源文档:</p>
+                        {message.sources.map((source, index) => (
+                          <div key={index} className="bg-background rounded-sm p-2 text-xs">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium">{source.title}</span>
+                              {source.page && <Badge variant="outline" className="h-5">第 {source.page} 页</Badge>}
+                            </div>
+                            <p className="text-muted-foreground">{source.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground mt-1 text-right">
+                  {formatDateTime(message.timestamp)}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ))}
+        
+        {isLoading && (
+          <div className="flex justify-start">
+            <Card className="max-w-[80%] bg-muted">
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-pulse flex space-x-1">
+                    <div className="h-2 w-2 bg-primary rounded-full"></div>
+                    <div className="h-2 w-2 bg-primary rounded-full"></div>
+                    <div className="h-2 w-2 bg-primary rounded-full"></div>
+                  </div>
+                  <span className="text-sm text-muted-foreground">AI正在思考...</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* 输入区域 */}
+      <div className="border-t p-4 bg-background sticky bottom-0">
+        <div className="flex gap-2">
+          <Textarea
+            ref={inputRef}
+            placeholder="输入您的问题..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="resize-none"
+            rows={1}
+          />
+          <Button onClick={handleSendMessage} disabled={!input.trim() || isLoading}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          AI助手基于知识库内容回答问题，如需更多帮助，请尽量描述详细的问题
+        </p>
+      </div>
     </div>
   );
+}
+
+// 辅助函数
+
+// 模拟延迟
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 模拟响应生成
+async function mockResponse(query: string, knowledgeBase: KnowledgeBase): Promise<Message> {
+  // 简单的关键词匹配来生成模拟响应
+  const normalizedQuery = query.toLowerCase();
+  
+  let content = "";
+  let sources: Message["sources"] = [];
+  
+  // 匹配产品相关问题
+  if (normalizedQuery.includes("产品") || normalizedQuery.includes("服务")) {
+    content = "根据我们的知识库信息，我们提供多种产品和服务，包括AI对话系统、文档智能处理、自定义知识库解决方案等。每种产品都有详细的技术规格和用例说明。\n\n如果您需要特定产品的详细信息，可以告诉我产品名称，我会提供更具体的资料。";
+    sources = [
+      {
+        title: "产品目录.pdf",
+        content: "本公司提供多种AI驱动的产品和服务，包括对话系统、文档处理和知识库解决方案...",
+        page: 3
+      },
+      {
+        title: "服务手册.docx",
+        content: "我们的服务范围包括产品咨询、定制开发、系统集成和技术支持...",
+        page: 12
+      }
+    ];
+  }
+  // 匹配价格相关问题
+  else if (normalizedQuery.includes("价格") || normalizedQuery.includes("费用") || normalizedQuery.includes("多少钱")) {
+    content = "我们的产品价格体系采用灵活的订阅制模式，基础版每月299元起，专业版每月999元起，企业版则根据具体需求定制。所有版本都提供核心功能，高级版本增加了更多的使用限额和专属功能。\n\n详细的价格信息可以参考我们的官方价目表，或联系销售团队获取针对您具体需求的报价。";
+    sources = [
+      {
+        title: "价格手册2023.pdf",
+        content: "基础版：每月299元，包含5GB存储空间和1000次API调用...",
+        page: 1
+      }
+    ];
+  }
+  // 匹配使用方法相关问题
+  else if (normalizedQuery.includes("如何使用") || normalizedQuery.includes("使用方法") || normalizedQuery.includes("教程")) {
+    content = "使用我们的系统非常简单，主要分为以下几个步骤：\n\n1. 创建账户并选择合适的套餐\n2. 创建知识库并上传文档\n3. 等待系统处理和索引文档\n4. 开始提问或集成API到您的应用\n\n我们提供详细的使用手册和视频教程，并有专业的客服团队随时提供支持。如果遇到任何问题，可以通过在线客服或电子邮件联系我们。";
+    sources = [
+      {
+        title: "快速入门指南.pdf",
+        content: "第一步：注册并验证您的账户...",
+        page: 5
+      },
+      {
+        title: "常见问题解答.md",
+        content: "问：如何上传文档到知识库？答：在知识库详情页点击「上传文档」按钮...",
+        page: 2
+      }
+    ];
+  }
+  // 默认回答
+  else {
+    content = `我理解您的问题是关于"${query}"。根据${knowledgeBase.name}知识库中的信息，我们目前没有直接相关的详细资料。您可以尝试用不同的方式描述您的问题，或者询问其他相关主题。我们的知识库内容会定期更新，以提供更全面的信息。`;
+  }
+  
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant",
+    content,
+    timestamp: new Date(),
+    sources
+  };
 } 

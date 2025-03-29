@@ -11,8 +11,12 @@ import {
   BarChart3, 
   BookOpen,
   Settings, 
-  LucideIcon 
+  LucideIcon,
+  Home,
+  Cpu,
+  Database
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   title: string;
@@ -72,7 +76,37 @@ export default function Sidebar() {
         <h1 className="text-2xl font-bold text-foreground">MCP</h1>
         <p className="text-sm text-muted-foreground">订单管理与分析系统</p>
       </div>
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex flex-col gap-4 px-2">
+        <Link
+          href="/"
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
+            pathname === "/" ? "bg-accent text-foreground" : ""
+          )}
+        >
+          <Home className="h-4 w-4" />
+          <span>首页</span>
+        </Link>
+        <Link
+          href="/models"
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
+            pathname === "/models" ? "bg-accent text-foreground" : ""
+          )}
+        >
+          <Cpu className="h-4 w-4" />
+          <span>模型管理</span>
+        </Link>
+        <Link
+          href="/knowledge"
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
+            pathname.startsWith("/knowledge") ? "bg-accent text-foreground" : ""
+          )}
+        >
+          <Database className="h-4 w-4" />
+          <span>知识库管理</span>
+        </Link>
         {navItems.map((item) => (
           <Link
             key={item.href}

@@ -272,20 +272,20 @@ class ReportGenerator {
       analysisResult.findings.forEach(finding => {
         let bgColor, borderColor, severityText, severityColor;
         
-        switch (finding.severity) {
-          case 'high':
+      switch (finding.severity) {
+        case 'high':
             bgColor = '#fdf2f2';
             borderColor = '#dc2626';
             severityText = '高风险';
             severityColor = '#dc2626';
-            break;
-          case 'medium':
+          break;
+        case 'medium':
             bgColor = '#fef9eb';
             borderColor = '#fcd34d';
             severityText = '中风险';
             severityColor = '#d97706';
-            break;
-          default:
+          break;
+        default:
             bgColor = '#eff6ff';
             borderColor = '#3b82f6';
             severityText = '低风险';
@@ -340,15 +340,15 @@ class ReportGenerator {
 
   private getStepTypeText(type: string): string {
     switch (type) {
-      case 'observation':
+        case 'observation':
         return '观察';
-      case 'analysis':
+        case 'analysis':
         return '分析';
-      case 'insight':
+        case 'insight':
         return '洞察';
-      case 'conclusion':
+        case 'conclusion':
         return '结论';
-      default:
+        default:
         return '步骤';
     }
   }

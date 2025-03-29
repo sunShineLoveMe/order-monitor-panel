@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
@@ -26,116 +26,119 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, MoreHorizontal, MessagesSquare, FileText, Loader2, Trash2, PenSquare } from "lucide-react";
+import { Search, Plus, MoreHorizontal, MessagesSquare, FileText, Loader2, Trash2, PenSquare, MessageSquare, File, Edit, XCircle, CheckCircle } from "lucide-react";
 import KnowledgeBaseChat from "./KnowledgeBaseChat";
+import { KnowledgeBase, knowledgeBaseService } from "@/lib/services/knowledgeBase";
+import { format } from "date-fns";
+import KnowledgeDetail from "./KnowledgeDetail";
 
-export interface KnowledgeBase {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  documentsCount: number;
-  status: 'creating' | 'processing' | 'ready' | 'error';
+interface KnowledgeBaseListProps {
+  // 如果需要任何props，可以在这里添加
 }
 
-// 模拟知识库数据
-const mockKnowledgeBases: KnowledgeBase[] = [
-  {
-    id: 'kb-001',
-    name: '产品知识库',
-    description: '包含所有产品相关的信息、规格和使用指南',
-    createdAt: '2023-08-15T08:00:00Z',
-    updatedAt: '2023-09-20T15:30:00Z',
-    documentsCount: 27,
-    status: 'ready'
-  },
-  {
-    id: 'kb-002',
-    name: '供应商管理手册',
-    description: '供应商筛选、评估和合作流程的完整指南',
-    createdAt: '2023-09-01T10:15:00Z',
-    updatedAt: '2023-09-18T09:45:00Z',
-    documentsCount: 13,
-    status: 'ready'
-  },
-  {
-    id: 'kb-003',
-    name: '员工培训材料',
-    description: '新员工入职培训和岗位技能培训资料',
-    createdAt: '2023-07-25T14:30:00Z',
-    updatedAt: '2023-09-22T16:20:00Z',
-    documentsCount: 42,
-    status: 'ready'
-  },
-  {
-    id: 'kb-004',
-    name: '仓储操作指南',
-    description: '仓库管理流程、库存盘点和物流配送标准操作流程',
-    createdAt: '2023-06-10T11:45:00Z',
-    updatedAt: '2023-09-15T13:10:00Z',
-    documentsCount: 18,
-    status: 'ready'
-  },
-  {
-    id: 'kb-005',
-    name: '品控检验手册',
-    description: '原材料和成品质量检验标准与流程',
-    createdAt: '2023-09-05T09:20:00Z',
-    updatedAt: '2023-09-05T09:20:00Z',
-    documentsCount: 0,
-    status: 'creating'
-  }
-];
+export default function KnowledgeBaseList({}: KnowledgeBaseListProps) {
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [filteredBases, setFilteredBases] = useState<KnowledgeBase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBase, setSelectedBase] = useState<KnowledgeBase | null>(null);
+  const [isChatting, setIsChatting] = useState(false);
+  const [isViewingDetails, setIsViewingDetails] = useState(false);
 
-export default function KnowledgeBaseList() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<string | null>(null);
-  
-  // 过滤知识库
-  const filteredKnowledgeBases = mockKnowledgeBases.filter(kb => 
-    kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    kb.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
+  useEffect(() => {
+    // 加载知识库列表
+    const fetchKnowledgeBases = async () => {
+      try {
+        const bases = await knowledgeBaseService.getKnowledgeBases();
+        setKnowledgeBases(bases);
+        setFilteredBases(bases);
+      } catch (error) {
+        console.error("获取知识库列表失败:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchKnowledgeBases();
+  }, []);
+
+  useEffect(() => {
+    // 根据搜索过滤知识库
+    if (!searchQuery.trim()) {
+      setFilteredBases(knowledgeBases);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = knowledgeBases.filter(
+      kb => kb.name.toLowerCase().includes(query) || 
+            (kb.description && kb.description.toLowerCase().includes(query))
+    );
+    setFilteredBases(filtered);
+  }, [searchQuery, knowledgeBases]);
+
   // 格式化日期
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
+  const formatDate = (date: Date) => {
+    return format(new Date(date), 'yyyy/MM/dd');
   };
-  
-  // 状态标签
+
+  // 状态徽章
   const getStatusBadge = (status: KnowledgeBase['status']) => {
     switch (status) {
-      case 'creating':
-        return <Badge variant="secondary" className="flex gap-1 items-center"><Loader2 className="h-3 w-3 animate-spin" />创建中</Badge>;
-      case 'processing':
-        return <Badge variant="outline" className="flex gap-1 items-center"><Loader2 className="h-3 w-3 animate-spin" />处理中</Badge>;
-      case 'ready':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">就绪</Badge>;
+      case 'active':
+        return <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 可用</Badge>;
+      case 'indexing':
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> 索引中</Badge>;
       case 'error':
-        return <Badge variant="destructive">错误</Badge>;
+        return <Badge variant="destructive" className="flex items-center gap-1"><XCircle className="h-3 w-3" /> 错误</Badge>;
       default:
-        return null;
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
-  
-  const handleStartChat = (id: string) => {
-    setSelectedKnowledgeBaseId(id);
+
+  // 处理开始聊天
+  const handleStartChat = (kb: KnowledgeBase) => {
+    setSelectedBase(kb);
+    setIsChatting(true);
+    setIsViewingDetails(false);
   };
-  
+
+  // 处理查看详情
+  const handleViewDetails = (kb: KnowledgeBase) => {
+    setSelectedBase(kb);
+    setIsViewingDetails(true);
+    setIsChatting(false);
+  };
+
+  // 返回列表
   const handleBackToList = () => {
-    setSelectedKnowledgeBaseId(null);
+    setSelectedBase(null);
+    setIsChatting(false);
+    setIsViewingDetails(false);
   };
-  
-  if (selectedKnowledgeBaseId) {
-    return <KnowledgeBaseChat knowledgeBaseId={selectedKnowledgeBaseId} onBack={handleBackToList} />;
+
+  // 渲染知识库聊天界面
+  if (isChatting && selectedBase) {
+    // 转换Date类型为string类型
+    const convertedKb = {
+      id: selectedBase.id,
+      name: selectedBase.name,
+      description: selectedBase.description,
+      documentCount: selectedBase.documentCount,
+      createdAt: selectedBase.createdAt instanceof Date ? selectedBase.createdAt.toISOString() : selectedBase.createdAt,
+      updatedAt: selectedBase.updatedAt instanceof Date ? selectedBase.updatedAt.toISOString() : selectedBase.updatedAt,
+      status: selectedBase.status,
+      embeddingModel: selectedBase.embeddingModel
+    };
+    return <KnowledgeBaseChat knowledgeBase={convertedKb} onBack={handleBackToList} />;
   }
-  
+
+  // 渲染知识库详情界面
+  if (isViewingDetails && selectedBase) {
+    return <KnowledgeDetail knowledgeBaseId={selectedBase.id} onBack={handleBackToList} />;
+  }
+
+  // 渲染知识库列表
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -166,90 +169,85 @@ export default function KnowledgeBaseList() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>名称</TableHead>
-                <TableHead>文档数量</TableHead>
-                <TableHead>创建日期</TableHead>
-                <TableHead>更新日期</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredKnowledgeBases.length === 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">加载中...</span>
+            </div>
+          ) : filteredBases.length === 0 ? (
+            <div className="text-center p-8 border rounded-md">
+              <div className="text-muted-foreground">暂无数据</div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">
-                    未找到匹配的知识库
-                  </TableCell>
+                  <TableHead>名称</TableHead>
+                  <TableHead>文档数量</TableHead>
+                  <TableHead>创建日期</TableHead>
+                  <TableHead>更新日期</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
                 </TableRow>
-              ) : (
-                filteredKnowledgeBases.map((kb) => (
+              </TableHeader>
+              <TableBody>
+                {filteredBases.map((kb) => (
                   <TableRow key={kb.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{kb.name}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-xs">
+                    <TableCell className="font-medium max-w-[200px]">
+                      <div>{kb.name}</div>
+                      {kb.description && (
+                        <div className="text-xs text-muted-foreground truncate">
                           {kb.description}
                         </div>
-                      </div>
+                      )}
                     </TableCell>
-                    <TableCell>{kb.documentsCount}</TableCell>
+                    <TableCell>{kb.documentCount}</TableCell>
                     <TableCell>{formatDate(kb.createdAt)}</TableCell>
                     <TableCell>{formatDate(kb.updatedAt)}</TableCell>
                     <TableCell>{getStatusBadge(kb.status)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end space-x-2">
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="h-8 gap-1"
-                          disabled={kb.status !== 'ready'}
-                          onClick={() => handleStartChat(kb.id)}
+                          onClick={() => handleStartChat(kb)}
+                          title="开始聊天"
                         >
-                          <MessagesSquare className="h-4 w-4" />
-                          <span className="hidden sm:inline">对话</span>
+                          <MessageSquare className="h-4 w-4" />
                         </Button>
-                        
                         <Button 
                           variant="outline" 
-                          size="sm" 
-                          className="h-8 gap-1"
-                          onClick={() => console.log('查看文档', kb.id)}
+                          size="sm"
+                          title="查看详情"
+                          onClick={() => handleViewDetails(kb)}
                         >
-                          <FileText className="h-4 w-4" />
-                          <span className="hidden sm:inline">文档</span>
+                          <File className="h-4 w-4" />
                         </Button>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2" onClick={() => console.log('编辑', kb.id)}>
-                              <PenSquare className="h-4 w-4" />
-                              <span>编辑知识库</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => console.log('删除', kb.id)}>
-                              <Trash2 className="h-4 w-4" />
-                              <span>删除知识库</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          title="编辑"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
         <CardFooter className="border-t px-6 py-4">
           <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-            <div>共 {filteredKnowledgeBases.length} 个知识库</div>
+            <div>共 {filteredBases.length} 个知识库</div>
             {searchQuery && (
               <Button 
                 variant="link" 

@@ -10,213 +10,351 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { UploadCloud, X, File, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { FileText, Upload, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { knowledgeBaseService } from "@/lib/services/knowledgeBase";
 
 interface UploadDocumentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   knowledgeBaseId: string;
   knowledgeBaseName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export default function UploadDocumentDialog({ 
-  open, 
-  onOpenChange,
+interface FileUploadState {
+  file: File;
+  progress: number;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  error?: string;
+}
+
+export default function UploadDocumentDialog({
   knowledgeBaseId,
-  knowledgeBaseName
+  knowledgeBaseName,
+  open,
+  onOpenChange,
+  onSuccess
 }: UploadDocumentDialogProps) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [files, setFiles] = useState<FileUploadState[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...newFiles]);
+  // 支持的文件类型
+  const supportedFileTypes = [
+    'application/pdf', 
+    'text/plain', 
+    'text/csv', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/json',
+    'text/markdown'
+  ];
+
+  // 文件扩展名映射
+  const fileExtensionMap: Record<string, string> = {
+    'application/pdf': 'PDF',
+    'text/plain': 'TXT',
+    'text/csv': 'CSV',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+    'application/json': 'JSON',
+    'text/markdown': 'MD'
+  };
+
+  // 清除上传状态
+  const resetUploadState = () => {
+    setFiles([]);
+    setUploading(false);
+  };
+
+  // 关闭对话框时重置状态
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      resetUploadState();
+    }
+    onOpenChange(newOpen);
+  };
+
+  // 处理文件拖放
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
+  // 处理文件选择或拖放完成
+  const handleFiles = (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    
+    const newFiles = Array.from(selectedFiles)
+      .filter(file => supportedFileTypes.includes(file.type))
+      .map(file => ({
+        file,
+        progress: 0,
+        status: 'pending' as const
+      }));
+    
+    if (newFiles.length === 0) {
+      alert("请上传有效的文档文件 (PDF, TXT, CSV, DOCX, XLSX, JSON, MD)");
+      return;
+    }
+    
+    setFiles(prev => [...prev, ...newFiles]);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
+  // 处理文件拖放完成
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setIsDragging(false);
+    e.stopPropagation();
+    setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev => [...prev, ...newFiles]);
+    handleFiles(e.dataTransfer.files);
+  };
+
+  // 处理文件选择
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(e.target.files);
+    // 重置input，以便能够重复选择同一文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
+  // 点击按钮触发文件选择
+  const handleButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // 从文件列表中移除文件
   const handleRemoveFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // 上传所有文件
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 || uploading) return;
     
-    setIsSubmitting(true);
+    setUploading(true);
     
-    try {
-      // 这里可以添加实际的API调用来上传文件
-      // 模拟API延迟
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    // 更新所有文件状态为上传中
+    setFiles(prev => prev.map(file => ({ ...file, status: 'uploading', progress: 0 })));
+    
+    // 逐个上传文件
+    for (let i = 0; i < files.length; i++) {
+      try {
+        // 如果文件已上传成功或者出错，跳过
+        if (files[i].status === 'success' || files[i].status === 'error') continue;
+        
+        // 模拟上传进度
+        const updateProgress = (progress: number) => {
+          setFiles(prev => {
+            const newFiles = [...prev];
+            newFiles[i] = { ...newFiles[i], progress };
+            return newFiles;
+          });
+        };
+        
+        // 模拟进度更新
+        const progressInterval = setInterval(() => {
+          setFiles(prev => {
+            const file = prev[i];
+            if (file.progress < 90) {
+              const newFiles = [...prev];
+              newFiles[i] = { ...file, progress: file.progress + 10 };
+              return newFiles;
+            }
+            return prev;
+          });
+        }, 300);
+        
+        // 上传文件
+        await knowledgeBaseService.uploadDocument(knowledgeBaseId, files[i].file);
+        
+        // 清除进度更新
+        clearInterval(progressInterval);
+        
+        // 更新状态为成功
+        setFiles(prev => {
+          const newFiles = [...prev];
+          newFiles[i] = { ...newFiles[i], status: 'success', progress: 100 };
+          return newFiles;
+        });
+      } catch (error) {
+        // 更新状态为错误
+        setFiles(prev => {
+          const newFiles = [...prev];
+          newFiles[i] = { 
+            ...newFiles[i], 
+            status: 'error', 
+            error: error instanceof Error ? error.message : '上传失败'
+          };
+          return newFiles;
+        });
+      }
+    }
+    
+    // 检查是否所有文件都上传完成
+    const allCompleted = files.every(file => 
+      file.status === 'success' || file.status === 'error'
+    );
+    
+    if (allCompleted) {
+      setUploading(false);
       
-      console.log('上传文件到知识库:', knowledgeBaseId, files);
-      
-      // 上传成功后清空文件列表并关闭对话框
-      setFiles([]);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('文件上传失败:', error);
-    } finally {
-      setIsSubmitting(false);
+      // 如果有成功上传的文件，调用成功回调
+      if (files.some(file => file.status === 'success') && onSuccess) {
+        onSuccess();
+      }
     }
   };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    const kb = bytes / 1024;
-    if (kb < 1024) return kb.toFixed(1) + ' KB';
-    const mb = kb / 1024;
-    return mb.toFixed(1) + ' MB';
-  };
-
-  const getFileIcon = (file: File) => {
-    const type = file.type;
-    let color = "text-gray-500";
-    
-    if (type.includes('pdf')) color = "text-red-500";
-    else if (type.includes('word')) color = "text-blue-500";
-    else if (type.includes('sheet')) color = "text-green-500";
-    else if (type.includes('image')) color = "text-purple-500";
-    
-    return <File className={`h-5 w-5 ${color}`} />;
-  };
-
-  const acceptedFileTypes = [
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx', 
-    '.txt', '.md', '.csv', '.ppt', '.pptx',
-    'application/pdf', 
-    'application/msword', 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    'text/markdown',
-    'text/csv',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-  ].join(',');
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>上传文档到知识库</DialogTitle>
           <DialogDescription>
-            上传文档到「{knowledgeBaseName}」，支持PDF、Word、Excel、TXT等格式
+            您正在向知识库 <span className="font-semibold">{knowledgeBaseName}</span> 上传文档
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* 拖放区域 */}
           <div 
-            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-              isDragging 
-                ? 'border-primary bg-primary/5' 
-                : 'border-muted-foreground/20 hover:border-primary/50'
+            className={`border-2 border-dashed rounded-lg p-8 transition-colors text-center ${
+              dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/30'
             }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
           >
-            <UploadCloud className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-1">将文件拖放到此处或点击上传</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              支持PDF、Word、Excel、TXT等格式，单个文件最大50MB
-            </p>
-            
-            <Button variant="outline" type="button">
-              选择文件
-            </Button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={acceptedFileTypes}
-              onChange={handleFileChange}
-              className="hidden"
-              multiple
-            />
+            <div className="flex flex-col items-center justify-center gap-2">
+              <Upload className="h-10 w-10 text-muted-foreground" />
+              <p className="text-muted-foreground">
+                拖放文件到此处，或
+                <button
+                  type="button"
+                  onClick={handleButtonClick}
+                  className="mx-1 text-primary hover:underline focus:outline-none"
+                >
+                  浏览文件
+                </button>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                支持 PDF, TXT, CSV, DOCX, XLSX, JSON, MD 格式文件
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                multiple
+                accept=".pdf,.txt,.csv,.docx,.xlsx,.json,.md"
+                onChange={handleFileSelect}
+              />
+            </div>
           </div>
-          
+
+          {/* 文件列表 */}
           {files.length > 0 && (
-            <div className="mt-4">
-              <Label className="text-base mb-2 block">已选择 {files.length} 个文件</Label>
-              <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
+            <div className="space-y-3 mt-4">
+              <p className="text-sm font-medium">上传文件 ({files.length})</p>
+              <div className="space-y-2">
                 {files.map((file, index) => (
                   <div 
                     key={index} 
-                    className="flex items-center justify-between p-2 border rounded-md bg-muted/20"
+                    className="flex items-center justify-between p-3 border rounded-md bg-background"
                   >
-                    <div className="flex items-center truncate pr-2">
-                      {getFileIcon(file)}
-                      <span className="ml-2 truncate">{file.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {formatFileSize(file.size)}
-                      </span>
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <FileText className="h-6 w-6 text-primary/70" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{file.file.name}</p>
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <span className="mr-2">
+                            {fileExtensionMap[file.file.type] || '文档'}
+                          </span>
+                          <span>
+                            {(file.file.size / 1024).toFixed(0)} KB
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFile(index);
-                      }}
-                      className="h-7 w-7"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    
+                    <div className="flex items-center space-x-3">
+                      {file.status === 'pending' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {file.status === 'uploading' && (
+                        <div className="w-24">
+                          <Progress value={file.progress} className="h-2" />
+                        </div>
+                      )}
+                      {file.status === 'success' && (
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      )}
+                      {file.status === 'error' && (
+                        <AlertCircle className="h-5 w-5 text-destructive" />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          
-          <div className="flex items-center pt-2 text-sm">
-            <AlertCircle className="h-4 w-4 text-muted-foreground mr-2" />
-            <span className="text-muted-foreground">
-              上传后，系统将自动处理文档并将内容添加到知识库，处理时间取决于文档大小和数量
-            </span>
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
+          {/* 错误信息 */}
+          {files.some(file => file.status === 'error') && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                部分文件上传失败，请检查文件格式或稍后重试
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+        
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={uploading}
           >
-            取消
+            {files.some(file => file.status === 'success') ? '完成' : '取消'}
           </Button>
-          <Button 
-            type="submit"
-            onClick={handleUpload}
-            disabled={files.length === 0 || isSubmitting}
-          >
-            {isSubmitting ? '上传中...' : '上传文档'}
-          </Button>
+          {files.length > 0 && files.some(file => file.status === 'pending') && (
+            <Button 
+              onClick={handleUpload} 
+              disabled={uploading}
+            >
+              {uploading ? (
+                <>
+                  <Upload className="mr-2 h-4 w-4 animate-pulse" />
+                  上传中...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  上传文件 ({files.filter(f => f.status === 'pending').length})
+                </>
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,421 +1,368 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  ArrowLeft, 
-  Clock, 
-  File, 
-  FileText, 
-  FilePlus, 
-  MessageSquare, 
-  MoreVertical, 
-  RefreshCw, 
-  Search, 
-  Trash2, 
-  Upload 
-} from "lucide-react";
-import { KnowledgeBase } from "./KnowledgeBaseList";
-import UploadDocumentDialog from "./UploadDocumentDialog";
-
-// 模拟知识库数据
-const mockKnowledgeBases: Record<string, KnowledgeBase> = {
-  'kb-001': {
-    id: 'kb-001',
-    name: '产品知识库',
-    description: '包含所有产品相关的信息、规格和使用指南',
-    createdAt: '2023-08-15T08:00:00Z',
-    updatedAt: '2023-09-20T15:30:00Z',
-    documentsCount: 27,
-    status: 'ready'
-  },
-  'kb-002': {
-    id: 'kb-002',
-    name: '供应商管理手册',
-    description: '供应商筛选、评估和合作流程的完整指南',
-    createdAt: '2023-09-01T10:15:00Z',
-    updatedAt: '2023-09-18T09:45:00Z',
-    documentsCount: 13,
-    status: 'ready'
-  },
-  'kb-003': {
-    id: 'kb-003',
-    name: '员工培训材料',
-    description: '新员工入职培训和岗位技能培训资料',
-    createdAt: '2023-07-25T14:30:00Z',
-    updatedAt: '2023-09-22T16:20:00Z',
-    documentsCount: 42,
-    status: 'ready'
-  },
-  'kb-004': {
-    id: 'kb-004',
-    name: '仓储操作指南',
-    description: '仓库管理流程、库存盘点和物流配送标准操作流程',
-    createdAt: '2023-06-10T11:45:00Z',
-    updatedAt: '2023-09-15T13:10:00Z',
-    documentsCount: 18,
-    status: 'ready'
-  }
-};
-
-// 文档类型
-interface Document {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  uploadedAt: string;
-  status: 'processed' | 'processing' | 'failed';
-  chunks?: number;
-}
-
-// 模拟文档数据
-const mockDocuments: Record<string, Document[]> = {
-  'kb-001': [
-    {
-      id: 'doc-001',
-      name: '产品规格说明书v2.0.pdf',
-      type: 'application/pdf',
-      size: 2456000,
-      uploadedAt: '2023-09-18T09:30:00Z',
-      status: 'processed',
-      chunks: 42
-    },
-    {
-      id: 'doc-002',
-      name: '用户操作手册.docx',
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      size: 1256000,
-      uploadedAt: '2023-09-15T14:20:00Z',
-      status: 'processed',
-      chunks: 28
-    },
-    {
-      id: 'doc-003',
-      name: '产品常见问题解答.md',
-      type: 'text/markdown',
-      size: 45600,
-      uploadedAt: '2023-09-20T11:15:00Z',
-      status: 'processed',
-      chunks: 12
-    },
-    {
-      id: 'doc-004',
-      name: '维修保养指南.pdf',
-      type: 'application/pdf',
-      size: 3256000,
-      uploadedAt: '2023-09-10T16:45:00Z',
-      status: 'processed',
-      chunks: 56
-    }
-  ],
-  'kb-002': [
-    {
-      id: 'doc-005',
-      name: '供应商评估标准.xlsx',
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      size: 856000,
-      uploadedAt: '2023-09-05T10:30:00Z',
-      status: 'processed',
-      chunks: 15
-    },
-    {
-      id: 'doc-006',
-      name: '采购流程指南.pdf',
-      type: 'application/pdf',
-      size: 1856000,
-      uploadedAt: '2023-09-08T13:20:00Z',
-      status: 'processed',
-      chunks: 32
-    }
-  ],
-  'kb-003': [
-    {
-      id: 'doc-007',
-      name: '新员工入职手册.pdf',
-      type: 'application/pdf',
-      size: 2056000,
-      uploadedAt: '2023-07-28T09:15:00Z',
-      status: 'processed',
-      chunks: 38
-    }
-  ],
-  'kb-004': [
-    {
-      id: 'doc-008',
-      name: '仓库安全管理规范.pdf',
-      type: 'application/pdf',
-      size: 1656000,
-      uploadedAt: '2023-06-15T11:20:00Z',
-      status: 'processed',
-      chunks: 27
-    }
-  ]
-};
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Search, Upload, Pencil, Calendar, FileText, Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import { KnowledgeBase, KnowledgeBaseDocument, knowledgeBaseService } from "@/services/knowledgeBaseService";
+import { formatFileSize, formatDateTime } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 interface KnowledgeDetailProps {
   knowledgeBaseId: string;
   onBack: () => void;
-  onChat: () => void;
 }
 
-export default function KnowledgeDetail({ 
-  knowledgeBaseId, 
-  onBack,
-  onChat
-}: KnowledgeDetailProps) {
+export default function KnowledgeDetail({ knowledgeBaseId, onBack }: KnowledgeDetailProps) {
+  const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase | null>(null);
+  const [documents, setDocuments] = useState<KnowledgeBaseDocument[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<KnowledgeBaseDocument[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  
-  // 获取知识库信息
-  const knowledgeBase = mockKnowledgeBases[knowledgeBaseId];
-  const documents = mockDocuments[knowledgeBaseId] || [];
-  
-  // 根据搜索筛选文档
-  const filteredDocuments = documents.filter(doc => 
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("documents");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  // 加载知识库和文档
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // 获取知识库详情
+        const knowledgeBaseData = await knowledgeBaseService.getKnowledgeBase(knowledgeBaseId);
+        setKnowledgeBase(knowledgeBaseData);
+
+        // 获取文档列表
+        const documentsData = await knowledgeBaseService.getDocuments(knowledgeBaseId);
+        setDocuments(documentsData);
+        setFilteredDocuments(documentsData);
+      } catch (error) {
+        console.error("加载知识库详情失败:", error);
+        toast({
+          title: "加载失败",
+          description: "无法加载知识库详情，请稍后重试",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [knowledgeBaseId]);
+
+  // 根据搜索词过滤文档
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredDocuments(documents);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = documents.filter(doc => 
+      doc.filename.toLowerCase().includes(query) || 
+      doc.fileType.toLowerCase().includes(query)
+    );
+    
+    setFilteredDocuments(filtered);
+  }, [searchQuery, documents]);
+
+  // 处理文件上传
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // 遍历上传的所有文件
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        // 上传文件
+        await knowledgeBaseService.uploadDocument(knowledgeBaseId, file);
+        
+        // 添加到文档列表中（实际场景可能需要刷新整个列表）
+        const newDocument: KnowledgeBaseDocument = {
+          id: `temp-${Date.now()}-${i}`,
+          knowledgeBaseId,
+          filename: file.name,
+          fileType: file.name.split('.').pop() || '',
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          status: 'processing'
+        };
+        
+        setDocuments(prev => [...prev, newDocument]);
+        
+        toast({
+          title: "文件上传成功",
+          description: `${file.name} 已开始处理`,
+        });
+      } catch (error) {
+        console.error("上传文件失败:", error);
+        toast({
+          title: "上传失败",
+          description: `无法上传 ${file.name}，请稍后重试`,
+          variant: "destructive",
+        });
+      }
+    }
+    
+    // 重置文件输入
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    const kb = bytes / 1024;
-    if (kb < 1024) return kb.toFixed(1) + ' KB';
-    const mb = kb / 1024;
-    return mb.toFixed(1) + ' MB';
+  // 处理文档删除
+  const handleDeleteDocument = async (documentId: string) => {
+    if (window.confirm("确定要删除此文档吗？此操作无法撤销。")) {
+      try {
+        await knowledgeBaseService.deleteDocument(knowledgeBaseId, documentId);
+        
+        // 从列表中移除
+        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        
+        toast({
+          title: "文档已删除",
+          description: "文档已成功从知识库中删除",
+        });
+      } catch (error) {
+        console.error("删除文档失败:", error);
+        toast({
+          title: "删除失败",
+          description: "无法删除文档，请稍后重试",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
-  const handleDeleteDocument = (docId: string) => {
-    console.log('删除文档:', docId);
-    // 实际实现需要调用API删除文档
+  // 触发文件上传对话框
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
   };
 
-  const handleRefreshDocument = (docId: string) => {
-    console.log('刷新文档状态:', docId);
-    // 实际实现需要调用API刷新文档状态
+  // 获取文档状态徽章
+  const getDocumentStatusBadge = (status: KnowledgeBaseDocument['status']) => {
+    switch (status) {
+      case 'indexed':
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            已索引
+          </Badge>
+        );
+      case 'processing':
+        return (
+          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+            <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse mr-1" />
+            处理中
+          </Badge>
+        );
+      case 'failed':
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            处理失败
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary">
+            未知状态
+          </Badge>
+        );
+    }
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.includes('pdf')) return <File className="h-4 w-4 text-red-500" />;
-    if (type.includes('word')) return <File className="h-4 w-4 text-blue-500" />;
-    if (type.includes('sheet')) return <File className="h-4 w-4 text-green-500" />;
-    if (type.includes('markdown')) return <File className="h-4 w-4 text-purple-500" />;
-    return <FileText className="h-4 w-4 text-gray-500" />;
-  };
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-8">
+        <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mb-4" />
+        <p className="text-muted-foreground">加载知识库详情...</p>
+      </div>
+    );
+  }
+
+  if (!knowledgeBase) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-8">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold mb-2">无法加载知识库</h2>
+        <p className="text-muted-foreground mb-4">找不到指定的知识库或发生错误</p>
+        <Button onClick={onBack}>返回列表</Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          返回列表
-        </Button>
-        <h2 className="text-2xl font-bold tracking-tight">{knowledgeBase.name}</h2>
-        <div className={`ml-2 px-2 py-1 text-xs rounded-full ${
-          knowledgeBase.status === 'ready' ? 'bg-green-100 text-green-800' : 
-          knowledgeBase.status === 'processing' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {knowledgeBase.status === 'ready' ? '可用' : 
-           knowledgeBase.status === 'processing' ? '处理中' : '错误'}
+    <div className="flex flex-col h-full">
+      {/* 顶部导航和基本信息 */}
+      <div className="border-b p-4 bg-background sticky top-0 z-10">
+        <div className="flex items-center mb-4">
+          <Button variant="ghost" size="icon" onClick={onBack} className="mr-2">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h2 className="text-xl font-semibold">{knowledgeBase.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {knowledgeBase.description || "无描述"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <Card>
+            <CardContent className="p-4 flex items-center">
+              <FileText className="h-5 w-5 text-primary mr-3" />
+              <div>
+                <p className="text-sm font-medium">文档数量</p>
+                <p className="text-2xl font-bold">{knowledgeBase.documentCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 flex items-center">
+              <Calendar className="h-5 w-5 text-primary mr-3" />
+              <div>
+                <p className="text-sm font-medium">创建时间</p>
+                <p className="text-sm">{formatDateTime(knowledgeBase.createdAt)}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                <p className="text-sm font-medium">状态: {knowledgeBase.status}</p>
+              </div>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-3 w-3 mr-1" />
+                编辑信息
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList>
+              <TabsTrigger value="documents">文档管理</TabsTrigger>
+              <TabsTrigger value="settings">设置</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            multiple
+            className="hidden"
+            accept=".pdf,.docx,.doc,.txt,.md,.csv,.xlsx,.xls,.json"
+          />
+          
+          <Button onClick={triggerFileUpload} className="ml-4">
+            <Upload className="h-4 w-4 mr-2" />
+            上传文档
+          </Button>
         </div>
       </div>
-      
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>知识库信息</CardTitle>
-          <CardDescription>管理知识库基本信息和文档</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">描述</h3>
-              <p>{knowledgeBase.description}</p>
+
+      {/* 内容区域 */}
+      <div className="flex-1 p-4 overflow-auto">
+        <Tabs value={activeTab} className="w-full">
+          <TabsContent value="documents" className="mt-0">
+            {/* 搜索区域 */}
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索文档..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">创建时间</h3>
-                <p className="flex items-center gap-1">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  {formatDate(knowledgeBase.createdAt)}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">更新时间</h3>
-                <p className="flex items-center gap-1">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  {formatDate(knowledgeBase.updatedAt)}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="pt-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">文档列表 ({documents.length})</h3>
-              <div className="flex items-center gap-2">
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="搜索文档..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Button onClick={() => setShowUploadDialog(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  上传文档
-                </Button>
-              </div>
-            </div>
-            
-            {filteredDocuments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center border rounded-lg bg-muted/10">
-                <FilePlus className="h-10 w-10 text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium">没有找到文档</h3>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  {searchQuery ? '没有匹配的搜索结果，请尝试其他关键词' : '开始上传文档到此知识库'}
-                </p>
-                {!searchQuery && (
-                  <Button onClick={() => setShowUploadDialog(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    上传文档
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="border rounded-md">
+
+            {/* 文档列表 */}
+            {filteredDocuments.length > 0 ? (
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>文档名称</TableHead>
+                      <TableHead>文件名</TableHead>
+                      <TableHead>类型</TableHead>
                       <TableHead>大小</TableHead>
                       <TableHead>上传时间</TableHead>
                       <TableHead>状态</TableHead>
-                      <TableHead className="w-[100px]">操作</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredDocuments.map((doc) => (
                       <TableRow key={doc.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getFileIcon(doc.type)}
-                            <span className="font-medium">{doc.name}</span>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <FileText className="h-4 w-4 mr-2 text-primary" />
+                            {doc.filename}
                           </div>
                         </TableCell>
-                        <TableCell>{formatFileSize(doc.size)}</TableCell>
-                        <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              doc.status === 'processed' ? 'bg-green-500' : 
-                              doc.status === 'processing' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
-                            <span>
-                              {doc.status === 'processed' ? '已处理' : 
-                               doc.status === 'processing' ? '处理中' : '处理失败'}
-                            </span>
-                            {doc.status === 'processed' && doc.chunks && (
-                              <span className="text-xs text-muted-foreground">
-                                ({doc.chunks} 个块)
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>操作</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleRefreshDocument(doc.id)}
-                              >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                刷新状态
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteDocument(doc.id)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                删除文档
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <TableCell>{doc.fileType.toUpperCase()}</TableCell>
+                        <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
+                        <TableCell>{formatDateTime(doc.uploadedAt)}</TableCell>
+                        <TableCell>{getDocumentStatusBadge(doc.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteDocument(doc.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center rounded-md border border-dashed">
+                <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
+                  <FileText className="h-10 w-10 text-muted-foreground mb-4" />
+                  <h3 className="mt-2 text-lg font-semibold">没有文档</h3>
+                  <p className="mb-4 mt-1 text-sm text-muted-foreground">
+                    {searchQuery ? "没有找到匹配的文档" : "点击「上传文档」按钮添加文档"}
+                  </p>
+                  {searchQuery && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSearchQuery("")}
+                    >
+                      清除搜索
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-      
-      <div className="flex justify-end space-x-4 mt-6">
-        <Button 
-          variant="outline" 
-          onClick={onBack}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          返回
-        </Button>
-        <Button 
-          onClick={onChat}
-        >
-          <MessageSquare className="h-4 w-4 mr-2" />
-          知识库问答
-        </Button>
+          </TabsContent>
+          
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>知识库设置</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  设置功能尚在开发中，敬请期待
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <UploadDocumentDialog 
-        open={showUploadDialog} 
-        onOpenChange={setShowUploadDialog}
-        knowledgeBaseId={knowledgeBaseId}
-        knowledgeBaseName={knowledgeBase.name}
-      />
     </div>
   );
 } 

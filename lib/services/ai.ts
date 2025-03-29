@@ -106,6 +106,20 @@ export interface ModelConfig {
   };
 }
 
+// Embedding模型接口
+export interface EmbeddingModelConfig {
+  id: string;
+  name: string;
+  provider: 'openai' | 'huggingface' | 'custom';
+  model: string;
+  dimensions: number;
+  maxInputLength: number;
+  isDefault?: boolean;
+  isEnabled?: boolean;
+  apiKey?: string;
+  baseUrl?: string;
+}
+
 // Predefined model providers
 export const modelProviders: ModelProvider[] = [
   {
@@ -145,9 +159,69 @@ export const modelProviders: ModelProvider[] = [
   },
 ];
 
+// 预定义的Embedding模型
+export const embeddingModels: EmbeddingModelConfig[] = [
+  {
+    id: "openai-ada-002",
+    name: "OpenAI Ada 002",
+    provider: "openai",
+    model: "text-embedding-ada-002",
+    dimensions: 1536,
+    maxInputLength: 8192,
+    isDefault: true
+  },
+  {
+    id: "openai-ada-003",
+    name: "OpenAI Ada 003",
+    provider: "openai",
+    model: "text-embedding-3-large",
+    dimensions: 3072,
+    maxInputLength: 8191,
+    isDefault: false
+  },
+  {
+    id: "openai-small",
+    name: "OpenAI Small Embeddings",
+    provider: "openai",
+    model: "text-embedding-3-small",
+    dimensions: 1536,
+    maxInputLength: 8191,
+    isDefault: false
+  },
+  {
+    id: "bge-large-zh",
+    name: "BGE Large Chinese",
+    provider: "huggingface",
+    model: "BAAI/bge-large-zh-v1.5",
+    dimensions: 1024,
+    maxInputLength: 512,
+    isDefault: false
+  },
+  {
+    id: "bge-large-en",
+    name: "BGE Large English",
+    provider: "huggingface",
+    model: "BAAI/bge-large-en-v1.5",
+    dimensions: 1024,
+    maxInputLength: 512,
+    isDefault: false
+  },
+  {
+    id: "custom-embedding",
+    name: "自定义Embedding模型",
+    provider: "custom",
+    model: "custom-model",
+    dimensions: 768,
+    maxInputLength: 2048,
+    isDefault: false
+  }
+];
+
 export class AIService {
   private modelConfigs: ModelConfig[] = [];
   private defaultModelConfig: ModelConfig | null = null;
+  private embeddingConfigs: EmbeddingModelConfig[] = [];
+  private defaultEmbeddingConfig: EmbeddingModelConfig | null = null;
 
   constructor() {
     // 初始化默认模型配置
@@ -174,6 +248,11 @@ export class AIService {
     
     this.defaultModelConfig = this.modelConfigs[0];
     this.loadModelConfigs();
+
+    // 初始化Embedding模型配置
+    this.embeddingConfigs = [...embeddingModels];
+    this.defaultEmbeddingConfig = this.embeddingConfigs.find(config => config.isDefault) || this.embeddingConfigs[0];
+    this.loadEmbeddingConfigs();
   }
 
   // 从存储中加载模型配置
@@ -344,6 +423,174 @@ export class AIService {
         message: `自定义API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
       };
     }
+  }
+
+  // 从存储中加载Embedding模型配置
+  private loadEmbeddingConfigs(): void {
+    try {
+      const storedConfigs = typeof window !== 'undefined' 
+        ? localStorage.getItem('embeddingConfigs') 
+        : null;
+        
+      if (storedConfigs) {
+        this.embeddingConfigs = JSON.parse(storedConfigs);
+        this.defaultEmbeddingConfig = this.embeddingConfigs.find(config => config.isDefault) || this.embeddingConfigs[0];
+      }
+    } catch (error) {
+      console.error('加载Embedding模型配置失败:', error);
+    }
+  }
+
+  // 保存Embedding模型配置到存储
+  private saveEmbeddingConfigs(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('embeddingConfigs', JSON.stringify(this.embeddingConfigs));
+      }
+    } catch (error) {
+      console.error('保存Embedding模型配置失败:', error);
+    }
+  }
+
+  // 获取所有Embedding模型配置
+  public getEmbeddingConfigs(): EmbeddingModelConfig[] {
+    return [...this.embeddingConfigs];
+  }
+
+  // 获取默认Embedding模型配置
+  public getDefaultEmbeddingConfig(): EmbeddingModelConfig | null {
+    return this.defaultEmbeddingConfig;
+  }
+
+  // 更新Embedding模型配置
+  public updateEmbeddingConfigs(configs: EmbeddingModelConfig[]): void {
+    this.embeddingConfigs = [...configs];
+    this.defaultEmbeddingConfig = this.embeddingConfigs.find(config => config.isDefault) || this.embeddingConfigs[0];
+    this.saveEmbeddingConfigs();
+  }
+
+  // 测试Embedding模型连接
+  public async testEmbeddingConnection(modelConfig: EmbeddingModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 根据不同的提供商实现不同的测试逻辑
+      switch (modelConfig.provider) {
+        case 'openai':
+          return await this.testOpenAIConnection({
+            id: modelConfig.id,
+            name: modelConfig.name,
+            provider: modelConfig.provider,
+            apiKey: modelConfig.apiKey || '',
+            model: modelConfig.model,
+            isDefault: modelConfig.isDefault || false,
+            isEnabled: true,
+            supportsMultimodal: false,
+            contextLength: modelConfig.maxInputLength,
+            temperature: 0,
+            baseUrl: modelConfig.baseUrl
+          });
+        case 'huggingface':
+          return await this.testHuggingFaceConnection(modelConfig);
+        case 'custom':
+          return await this.testCustomEmbeddingConnection(modelConfig);
+        default:
+          return { success: false, message: '不支持的Embedding模型提供商' };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `连接测试失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试HuggingFace API连接
+  private async testHuggingFaceConnection(modelConfig: EmbeddingModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: 'HuggingFace API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `HuggingFace API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试自定义Embedding API连接
+  private async testCustomEmbeddingConnection(modelConfig: EmbeddingModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey || !modelConfig.baseUrl) {
+        return { success: false, message: 'API密钥和基础URL都不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: '自定义Embedding API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `自定义Embedding API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 生成文本的Embedding向量（用于知识库检索）
+  public async generateEmbeddings(texts: string[]): Promise<number[][]> {
+    try {
+      // 获取默认的Embedding模型配置
+      const embeddingConfig = this.defaultEmbeddingConfig;
+      if (!embeddingConfig) {
+        throw new Error('未配置Embedding模型');
+      }
+      
+      // 模拟生成Embedding向量
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // 返回模拟的Embedding向量
+      return texts.map(() => {
+        const dimensions = embeddingConfig.dimensions;
+        const embedding = new Array(dimensions).fill(0).map(() => Math.random() * 2 - 1);
+        return embedding;
+      });
+    } catch (error) {
+      console.error('生成Embedding失败:', error);
+      throw error;
+    }
+  }
+
+  // 计算两个向量之间的余弦相似度
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length) {
+      throw new Error('向量维度不一致');
+    }
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+    
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+    
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+    
+    return dotProduct / (normA * normB);
   }
 
   async generateInsights(data: {
@@ -619,6 +866,34 @@ export class AIService {
     }
 
     return predictions;
+  }
+
+  private updateEmbeddingConfig(modelConfig: EmbeddingModelConfig): void {
+    // 如果设置了新的默认模型，需要更新其他模型的默认状态
+    if (modelConfig.isDefault) {
+      this.embeddingConfigs = this.embeddingConfigs.map(config => ({
+        ...config,
+        isDefault: config.id === modelConfig.id
+      }));
+    }
+
+    // 查找并更新或添加新配置
+    const index = this.embeddingConfigs.findIndex(config => config.id === modelConfig.id);
+    if (index >= 0) {
+      this.embeddingConfigs[index] = {
+        ...modelConfig,
+        isDefault: modelConfig.isDefault || false,
+      };
+    } else {
+      this.embeddingConfigs.push({
+        ...modelConfig,
+        isDefault: modelConfig.isDefault || false,
+      });
+    }
+    
+    // 确保至少有一个默认模型
+    this.defaultEmbeddingConfig = this.embeddingConfigs.find(config => config.isDefault) || this.embeddingConfigs[0];
+    this.saveEmbeddingConfigs();
   }
 }
 
