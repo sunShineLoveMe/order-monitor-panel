@@ -9,6 +9,8 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ModelSettingsManager from "@/components/settings/ModelSettingsManager";
+import { BrainCircuit, Database } from "lucide-react";
 
 export default function ModelsSettingPage() {
   return (
@@ -20,11 +22,20 @@ export default function ModelsSettingPage() {
         配置和管理AI模型设置，支持多种模型提供商的接口
       </p>
 
-      <Tabs defaultValue="models" className="w-full">
-        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+      <Tabs defaultValue="settings" className="w-full">
+        <TabsList className="grid w-full md:w-[600px] grid-cols-3">
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <BrainCircuit className="h-4 w-4" />
+            <span>模型设置</span>
+          </TabsTrigger>
           <TabsTrigger value="models">模型列表</TabsTrigger>
           <TabsTrigger value="stats">使用统计</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="settings" className="mt-6">
+          <ModelSettingsManager />
+        </TabsContent>
+        
         <TabsContent value="models" className="mt-6">
           <Card>
             <CardHeader>
@@ -40,6 +51,7 @@ export default function ModelsSettingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
         <TabsContent value="stats" className="mt-6">
           <Card>
             <CardHeader>
