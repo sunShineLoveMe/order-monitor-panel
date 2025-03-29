@@ -245,7 +245,8 @@ export default function ModelSettingsManager() {
         description: "所有模型配置已成功保存到服务器。"
       });
       
-      // 不再跳转到首页，保持在当前页面
+      // 保存成功后跳转到模型列表页面
+      router.push("/settings/models");
     } catch (error) {
       console.error("Failed to save model configurations:", error);
       toast({
