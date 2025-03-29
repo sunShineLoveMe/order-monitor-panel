@@ -87,7 +87,7 @@ export default function Sidebar() {
         <h1 className="text-2xl font-bold text-foreground">MCP</h1>
         <p className="text-sm text-muted-foreground">订单管理与分析系统</p>
       </div>
-      <nav className="flex flex-col gap-4 px-2">
+      <nav className="flex flex-col gap-4 px-2 py-4 flex-1 overflow-y-auto">
         <Link
           href="/"
           className={cn(
@@ -139,17 +139,6 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-            U
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">用户名</p>
-            <p className="text-xs text-muted-foreground">管理员</p>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }
