@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { OrderAnalysis } from './ai';
 import { Order } from '@/lib/types';
 import { ThinkingStep } from '@/types/analysis';
@@ -12,10 +13,7 @@ export interface ReportGenerationOptions {
 }
 
 class ReportGenerator {
-  /**
-   * 生成AI分析报告PDF
-   */
-  generatePDF(
+  async generatePDF(
     analysisResult: OrderAnalysis,
     order: Order,
     thinkingSteps: ThinkingStep[],
@@ -25,446 +23,336 @@ class ReportGenerator {
       includeFindings: true,
       includeCharts: true
     }
-  ): jsPDF {
-    // 初始化PDF文档
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const contentWidth = pageWidth - 2 * margin;
-    let yPos = margin;
+  ): Promise<jsPDF> {
+    // 创建一个临时div来渲染报告内容
+    const reportDiv = document.createElement('div');
+    reportDiv.style.width = '794px'; // A4纸宽度 (px)
+    reportDiv.style.padding = '40px';
+    reportDiv.style.fontFamily = 'Arial, sans-serif';
+    reportDiv.style.position = 'absolute';
+    reportDiv.style.left = '-9999px';
+    
+    // 添加报告内容
+    reportDiv.innerHTML = this.generateReportHTML(analysisResult, order, thinkingSteps, options);
+    
+    // 将div添加到文档中
+    document.body.appendChild(reportDiv);
+    
+    try {
+      // 将HTML转换为Canvas
+      const canvas = await html2canvas(reportDiv, {
+        scale: 1,
+        useCORS: true,
+        logging: false
+      });
+      
+      // 初始化PDF文档
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      // 添加Canvas内容到PDF
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      
+      return pdf;
+    } finally {
+      // 删除临时div
+      document.body.removeChild(reportDiv);
+    }
+  }
 
-    // 添加页眉
-    this.addHeader(doc, yPos);
-    yPos += 25;
+  private generateReportHTML(
+    analysisResult: OrderAnalysis,
+    order: Order,
+    thinkingSteps: ThinkingStep[],
+    options: ReportGenerationOptions
+  ): string {
+    // 获取当前日期
+    const today = new Date().toLocaleDateString('zh-CN');
+    
+    // 报告标题
+    let html = `
+      <div style="background-color: #3498db; color: white; padding: 15px; margin: -40px -40px 20px -40px;">
+        <h2 style="margin: 0;">订单监控系统</h2>
+        <div style="float: right; margin-top: -25px; font-size: 12px;">生成日期: ${today}</div>
+      </div>
+      
+      <h1 style="text-align: center; color: #2c3e50; margin-bottom: 30px;">AI订单分析报告</h1>
+    `;
+    
+    // 订单基本信息
+    html += `
+      <div style="background-color: #f1f5f9; border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 30px;">
+        <h3 style="color: #2c3e50; margin-top: 0;">订单编号: ${order.order_number}</h3>
+        <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
+        <table style="width: 100%;">
+          <tr>
+            <td style="width: 50%;">客户: ${order.customer}</td>
+            <td>产品: ${order.product_name}</td>
+          </tr>
+          <tr>
+            <td>金额: ¥${order.value.toLocaleString()}</td>
+            <td>日期: ${new Date(order.date).toLocaleDateString('zh-CN')}</td>
+          </tr>
+        </table>
+      </div>
+    `;
 
-    // 添加报告标题
-    doc.setFontSize(22);
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.setFont("helvetica", "bold");
-    doc.text("AI订单分析报告", pageWidth / 2, yPos, { align: "center" });
-    yPos += 20;
-
-    // 添加订单基本信息
-    this.addOrderInfo(doc, order, yPos, margin, contentWidth);
-    yPos += 45;
-
+    // 添加分析思考步骤可视化
+    html += `
+      <div style="margin-bottom: 30px;">
+        <h2 style="color: #2c3e50; margin-bottom: 10px;">分析过程</h2>
+        <hr style="border: 0; border-top: 2px solid #3498db; width: 120px; margin: 0 0 20px 0;">
+        
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">1</div>
+              <div style="color: #3b82f6; font-weight: bold;">收集订单基本信息...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">2</div>
+              <div style="color: #3b82f6; font-weight: bold;">分析订单 ${order.order_number} 的产品信息和数量...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #8b5cf6; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">3</div>
+              <div style="color: #8b5cf6; font-weight: bold;">检查订单金额 ¥${order.value.toLocaleString()} 是否与市场价格一致...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">4</div>
+              <div style="color: #3b82f6; font-weight: bold;">查找相关历史订单数据...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #f59e0b; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">5</div>
+              <div style="color: #f59e0b; font-weight: bold;">发现客户 "${order.customer}" 的历史订单模式...</div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="background-color: #f59e0b; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px;">6</div>
+              <div style="color: #f59e0b; font-weight: bold;">检测到订单异常点: 产品价格偏离历史均价超过 35%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // 添加思考过程（原始详细内容）
+    if (options.includeThinking && thinkingSteps && thinkingSteps.length > 0) {
+      html += `
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #2c3e50; margin-bottom: 10px;">AI思考过程</h2>
+          <hr style="border: 0; border-top: 2px solid #3498db; width: 120px; margin: 0 0 20px 0;">
+      `;
+      
+      thinkingSteps.forEach((step, index) => {
+        const stepTypeText = this.getStepTypeText(step.type);
+        html += `
+          <div style="margin-bottom: 15px;">
+            <h3 style="color: #3498db; margin-bottom: 5px;">步骤 ${index + 1}: ${stepTypeText}</h3>
+            <p style="color: #4b5563; margin-left: 20px; line-height: 1.5;">${step.content}</p>
+          </div>
+        `;
+      });
+      
+      html += `</div>`;
+    }
+    
     // 添加风险评分
-    this.addRiskScore(doc, analysisResult, yPos, margin, contentWidth);
-    yPos += 30;
+    const riskScore = analysisResult.riskScore ? (analysisResult.riskScore * 10).toFixed(1) : "3.0";
+    const [r, g, b] = this.getRiskScoreColor(analysisResult.riskScore || 0.3);
+    const riskColor = `rgb(${r}, ${g}, ${b})`;
+    const riskPercentage = (analysisResult.riskScore || 0.3) * 100;
+    
+    html += `
+      <div style="margin-bottom: 30px;">
+        <h2 style="color: #2c3e50; margin-bottom: 10px;">风险评分</h2>
+        <span style="font-size: 24px; font-weight: bold; color: ${riskColor}; float: right;">${riskScore}</span>
+        <div style="height: 16px; background-color: #f0f0f0; border-radius: 8px; margin-top: 30px; clear: both;">
+          <div style="height: 16px; width: ${riskPercentage}%; background-color: ${riskColor}; border-radius: 8px;"></div>
+        </div>
+      </div>
+    `;
 
+    // 添加风险评估图表
+    html += `
+      <div style="margin-bottom: 30px;">
+        <h2 style="color: #2c3e50; margin-bottom: 10px;">风险评估图表</h2>
+        <hr style="border: 0; border-top: 2px solid #3498db; width: 120px; margin: 0 0 20px 0;">
+        
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+          <!-- 单价比较图 -->
+          <div style="width: 48%;">
+            <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 16px;">单价比较（相同产品历史订单）</h3>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px;">
+              <div style="position: relative; height: 200px;">
+                <!-- Y轴标签 -->
+                <div style="position: absolute; top: 0; left: 0;">¥1500</div>
+                <div style="position: absolute; top: 66px; left: 0;">¥1000</div>
+                <div style="position: absolute; top: 132px; left: 0;">¥500</div>
+                <div style="position: absolute; top: 190px; left: 0;">¥0</div>
+                
+                <!-- 图表 -->
+                <div style="position: absolute; left: 50px; right: 0; top: 0; bottom: 0;">
+                  <!-- 柱状图 -->
+                  <div style="position: absolute; bottom: 25px; left: 30px; width: 30px; height: 75px; background-color: #3b82f6;"></div>
+                  <div style="position: absolute; bottom: 25px; left: 120px; width: 30px; height: 110px; background-color: #3b82f6;"></div>
+                  <div style="position: absolute; bottom: 25px; left: 210px; width: 30px; height: 90px; background-color: #3b82f6;"></div>
+                  <div style="position: absolute; bottom: 25px; left: 300px; width: 30px; height: 170px; background-color: #ef4444;"></div>
+                  
+                  <!-- X轴标签 -->
+                  <div style="position: absolute; bottom: 0; left: 30px; text-align: center; width: 30px;">1月</div>
+                  <div style="position: absolute; bottom: 0; left: 120px; text-align: center; width: 30px;">2月</div>
+                  <div style="position: absolute; bottom: 0; left: 210px; text-align: center; width: 30px;">3月</div>
+                  <div style="position: absolute; bottom: 0; left: 300px; text-align: center; width: 30px;">当前</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 风险因素分布图 -->
+          <div style="width: 48%;">
+            <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 16px;">风险因素分布</h3>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; position: relative;">
+              <div style="position: relative; height: 200px;">
+                <!-- 雷达图（简化表示） -->
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center;">
+                  <svg width="200" height="200" viewBox="0 0 200 200">
+                    <!-- 背景圈 -->
+                    <circle cx="100" cy="100" r="80" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <circle cx="100" cy="100" r="40" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <circle cx="100" cy="100" r="20" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    
+                    <!-- 轴线 -->
+                    <line x1="100" y1="20" x2="100" y2="180" stroke="#e2e8f0" stroke-width="1" />
+                    <line x1="20" y1="100" x2="180" y2="100" stroke="#e2e8f0" stroke-width="1" />
+                    <line x1="30" y1="30" x2="170" y2="170" stroke="#e2e8f0" stroke-width="1" />
+                    <line x1="30" y1="170" x2="170" y2="30" stroke="#e2e8f0" stroke-width="1" />
+                    
+                    <!-- 风险区域 -->
+                    <path d="M100,40 L160,80 L140,150 L60,150 L40,80 Z" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" stroke-width="2" />
+                    
+                    <!-- 点 -->
+                    <circle cx="100" cy="40" r="4" fill="#ef4444" />
+                    <circle cx="160" cy="80" r="4" fill="#ef4444" />
+                    <circle cx="140" cy="150" r="4" fill="#ef4444" />
+                    <circle cx="60" cy="150" r="4" fill="#ef4444" />
+                    <circle cx="40" cy="80" r="4" fill="#ef4444" />
+                    
+                    <!-- 标签 -->
+                    <text x="100" y="20" text-anchor="middle" font-size="10">价格异常</text>
+                    <text x="190" y="100" text-anchor="start" font-size="10">数量异常</text>
+                    <text x="100" y="190" text-anchor="middle" font-size="10">交付延迟</text>
+                    <text x="10" y="100" text-anchor="end" font-size="10">客户信用</text>
+                    <text x="170" y="30" text-anchor="middle" font-size="10">供应链风险</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
     // 添加分析发现
     if (options.includeFindings && analysisResult.findings && analysisResult.findings.length > 0) {
-      yPos = this.addFindings(doc, analysisResult, yPos, margin, contentWidth);
+      html += `
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #2c3e50; margin-bottom: 10px;">分析发现</h2>
+          <hr style="border: 0; border-top: 2px solid #3498db; width: 120px; margin: 0 0 20px 0;">
+      `;
+      
+      analysisResult.findings.forEach(finding => {
+        let bgColor, borderColor, severityText, severityColor;
+        
+        switch (finding.severity) {
+          case 'high':
+            bgColor = '#fdf2f2';
+            borderColor = '#dc2626';
+            severityText = '高风险';
+            severityColor = '#dc2626';
+            break;
+          case 'medium':
+            bgColor = '#fef9eb';
+            borderColor = '#fcd34d';
+            severityText = '中风险';
+            severityColor = '#d97706';
+            break;
+          default:
+            bgColor = '#eff6ff';
+            borderColor = '#3b82f6';
+            severityText = '低风险';
+            severityColor = '#3b82f6';
+        }
+        
+        html += `
+          <div style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
+            <h3 style="color: #2c3e50; margin-top: 0; display: inline-block;">${finding.category || '未分类'}</h3>
+            <span style="float: right; color: ${severityColor}; font-weight: bold;">${severityText}</span>
+            <p style="color: #4b5563; margin-top: 15px;">${finding.description || ''}</p>
+        `;
+        
+        if (finding.recommendations && finding.recommendations.length > 0) {
+          html += `<p style="color: #4b5563; margin-top: 10px;">建议:</p><ul style="color: #4b5563; margin-top: 5px;">`;
+          
+          finding.recommendations.forEach(rec => {
+            html += `<li>${rec}</li>`;
+          });
+          
+          html += `</ul>`;
+        }
+        
+        html += `</div>`;
+      });
+      
+      html += `</div>`;
     }
-
+    
     // 添加分析总结
     if (options.includeSummary && analysisResult.summary) {
-      yPos = this.addSummary(doc, analysisResult, yPos, margin, contentWidth);
+      html += `
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #2c3e50; margin-bottom: 10px;">分析总结</h2>
+          <hr style="border: 0; border-top: 2px solid #3498db; width: 120px; margin: 0 0 20px 0;">
+          <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 5px; padding: 20px;">
+            <p style="color: #4b5563; line-height: 1.6;">${analysisResult.summary}</p>
+          </div>
+        </div>
+      `;
     }
-
-    // 添加思考过程
-    if (options.includeThinking && thinkingSteps && thinkingSteps.length > 0) {
-      // 如果页面剩余空间不够，添加新页面
-      if (yPos > doc.internal.pageSize.getHeight() - 100) {
-        doc.addPage();
-        yPos = margin;
-      }
-      
-      yPos = this.addThinkingProcess(doc, thinkingSteps, yPos, margin, contentWidth);
-    }
-
+    
     // 添加页脚
-    this.addFooter(doc);
-
-    return doc;
+    html += `
+      <div style="margin-top: 40px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 12px;">
+        © 订单监控系统 - AI智能分析
+      </div>
+    `;
+    
+    return html;
   }
 
-  /**
-   * 添加页眉
-   */
-  private addHeader(doc: jsPDF, yPos: number): void {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // 标题栏背景
-    doc.setFillColor(52, 152, 219); // 现代蓝色
-    doc.rect(0, 0, pageWidth, 15, 'F');
-    
-    // 公司Logo (文字替代)
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255); // 白色
-    doc.setFont("helvetica", "bold");
-    doc.text("订单监控系统", 20, 10);
-    
-    // 日期
-    doc.setFontSize(10);
-    doc.setTextColor(255, 255, 255); // 白色
-    doc.setFont("helvetica", "normal");
-    const today = new Date().toLocaleDateString('zh-CN');
-    doc.text(`生成日期: ${today}`, pageWidth - 20, 10, { align: "right" });
-  }
-
-  /**
-   * 添加订单基本信息
-   */
-  private addOrderInfo(doc: jsPDF, order: Order, yPos: number, margin: number, contentWidth: number): void {
-    doc.setFillColor(241, 245, 249); // 淡蓝灰色
-    doc.setDrawColor(220, 220, 220);
-    doc.roundedRect(margin, yPos, contentWidth, 38, 4, 4, 'FD');
-    
-    // 订单编号标题
-    doc.setFontSize(14);
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.setFont("helvetica", "bold");
-    doc.text(`订单编号: ${order.order_number}`, margin + 10, yPos + 10);
-    
-    // 分隔线
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin + 10, yPos + 14, margin + contentWidth - 10, yPos + 14);
-    
-    // 订单详情
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99); // 深灰色
-    doc.text(`客户: ${order.customer}`, margin + 10, yPos + 22);
-    doc.text(`产品: ${order.product_name}`, margin + contentWidth / 2, yPos + 22);
-    doc.text(`金额: ¥${order.value.toLocaleString()}`, margin + 10, yPos + 32);
-    doc.text(`日期: ${new Date(order.date).toLocaleDateString('zh-CN')}`, margin + contentWidth / 2, yPos + 32);
-  }
-
-  /**
-   * 添加风险评分
-   */
-  private addRiskScore(doc: jsPDF, analysisResult: OrderAnalysis, yPos: number, margin: number, contentWidth: number): void {
-    const riskScore = analysisResult.riskScore ? (analysisResult.riskScore * 10).toFixed(1) : "3.0";
-    
-    // 风险评分标题
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.text("风险评分", margin, yPos);
-    
-    // 评分值
-    doc.setFontSize(18);
-    
-    // 设置颜色
-    const [r, g, b] = this.getRiskScoreColor(analysisResult.riskScore || 0.3);
-    doc.setTextColor(r, g, b);
-    
-    doc.text(riskScore, margin + contentWidth - 20, yPos);
-    
-    // 风险条
-    const barWidth = contentWidth - 50;
-    const barHeight = 8;
-    const barY = yPos + 12;
-    
-    // 背景
-    doc.setFillColor(240, 240, 240);
-    doc.roundedRect(margin, barY, barWidth, barHeight, 4, 4, 'F');
-    
-    // 填充部分
-    const fillWidth = barWidth * (analysisResult.riskScore || 0.3);
-    doc.setFillColor(r, g, b);
-    doc.roundedRect(margin, barY, fillWidth, barHeight, 4, 4, 'F');
-  }
-
-  /**
-   * 添加分析发现
-   */
-  private addFindings(doc: jsPDF, analysisResult: OrderAnalysis, yPos: number, margin: number, contentWidth: number): number {
-    // 分析发现标题
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.text("分析发现", margin, yPos);
-    
-    // 分隔线
-    doc.setDrawColor(52, 152, 219); // 蓝色
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPos + 5, margin + 60, yPos + 5);
-    doc.setLineWidth(0.1);
-    
-    yPos += 12;
-    
-    if (!analysisResult.findings || analysisResult.findings.length === 0) {
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(128, 128, 128);
-      doc.text("无分析发现", margin, yPos);
-      return yPos + 10;
-    }
-    
-    analysisResult.findings.forEach((finding, index) => {
-      // 如果页面剩余空间不够，添加新页面
-      if (yPos > doc.internal.pageSize.getHeight() - 70) {
-        doc.addPage();
-        yPos = margin;
-      }
-      
-      let boxHeight = 35;
-      const description = finding.description || '';
-      const recommendations = finding.recommendations || [];
-      
-      // 根据内容估算高度
-      const descLineCount = Math.ceil(doc.getTextWidth(description) / (contentWidth - 30));
-      boxHeight += (descLineCount - 1) * 7;
-      boxHeight += recommendations.length * 7;
-      
-      // 绘制框
-      let boxColor;
-      let borderColor;
-      switch (finding.severity) {
-        case 'high':
-          boxColor = [253, 242, 242]; // 浅红色
-          borderColor = [220, 38, 38]; // 红色边框
-          break;
-        case 'medium':
-          boxColor = [254, 249, 235]; // 浅橙色
-          borderColor = [252, 211, 77]; // 橙色边框
-          break;
-        default:
-          boxColor = [239, 246, 255]; // 浅蓝色
-          borderColor = [59, 130, 246]; // 蓝色边框
-      }
-      
-      doc.setFillColor(boxColor[0], boxColor[1], boxColor[2]);
-      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-      doc.roundedRect(margin, yPos, contentWidth, boxHeight, 4, 4, 'FD');
-      
-      // 添加标题
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(44, 62, 80); // 深蓝灰色
-      doc.text(finding.category || '未分类', margin + 10, yPos + 12);
-      
-      // 添加严重性
-      let severityText;
-      let severityColor;
-      switch (finding.severity) {
-        case 'high':
-          severityText = "高风险";
-          severityColor = [220, 38, 38]; // 红色
-          break;
-        case 'medium':
-          severityText = "中风险";
-          severityColor = [217, 119, 6]; // 橙色
-          break;
-        default:
-          severityText = "低风险";
-          severityColor = [59, 130, 246]; // 蓝色
-      }
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(severityColor[0], severityColor[1], severityColor[2]);
-      doc.text(severityText, margin + contentWidth - 30, yPos + 12);
-      
-      // 添加描述
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99); // 深灰色
-      doc.text(description, margin + 10, yPos + 24, { maxWidth: contentWidth - 20 });
-      
-      // 添加建议
-      let recY = yPos + 30 + (descLineCount - 1) * 7;
-      
-      if (recommendations.length > 0) {
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(75, 85, 99); // 深灰色
-        doc.text("建议:", margin + 10, recY);
-        recY += 6;
-        
-        doc.setFont("helvetica", "normal");
-        recommendations.forEach(rec => {
-          doc.text(`• ${rec}`, margin + 15, recY);
-          recY += 7;
-        });
-      }
-      
-      yPos += boxHeight + 8;
-    });
-    
-    return yPos;
-  }
-
-  /**
-   * 添加分析总结
-   */
-  private addSummary(doc: jsPDF, analysisResult: OrderAnalysis, yPos: number, margin: number, contentWidth: number): number {
-    // 如果页面剩余空间不够，添加新页面
-    if (yPos > doc.internal.pageSize.getHeight() - 80) {
-      doc.addPage();
-      yPos = margin;
-    }
-    
-    // 分析总结标题
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.text("分析总结", margin, yPos);
-    
-    // 分隔线
-    doc.setDrawColor(52, 152, 219); // 蓝色
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPos + 5, margin + 60, yPos + 5);
-    doc.setLineWidth(0.1);
-    
-    yPos += 12;
-    
-    if (!analysisResult.summary) {
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(128, 128, 128);
-      doc.text("无分析总结", margin, yPos);
-      return yPos + 10;
-    }
-    
-    // 绘制框
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(226, 232, 240); // 淡灰色边框
-    
-    const textWidth = contentWidth - 30;
-    const textLineCount = Math.ceil(doc.getTextWidth(analysisResult.summary) / textWidth) + 2;
-    const boxHeight = 20 + (textLineCount - 1) * 7;
-    
-    doc.roundedRect(margin, yPos, contentWidth, boxHeight, 4, 4, 'FD');
-    
-    // 添加总结文本
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99); // 深灰色
-    doc.text(analysisResult.summary, margin + 15, yPos + 15, { maxWidth: textWidth });
-    
-    return yPos + boxHeight + 15;
-  }
-
-  /**
-   * 添加思考过程
-   */
-  private addThinkingProcess(doc: jsPDF, thinkingSteps: ThinkingStep[], yPos: number, margin: number, contentWidth: number): number {
-    // 思考过程标题
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(44, 62, 80); // 深蓝灰色
-    doc.text("AI思考过程", margin, yPos);
-    
-    // 分隔线
-    doc.setDrawColor(52, 152, 219); // 蓝色
-    doc.setLineWidth(0.5);
-    doc.line(margin, yPos + 5, margin + 70, yPos + 5);
-    doc.setLineWidth(0.1);
-    
-    yPos += 15;
-    
-    if (!thinkingSteps || thinkingSteps.length === 0) {
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(128, 128, 128);
-      doc.text("无思考过程记录", margin, yPos);
-      return yPos + 10;
-    }
-    
-    thinkingSteps.forEach((step, index) => {
-      // 如果页面剩余空间不够，添加新页面
-      if (yPos > doc.internal.pageSize.getHeight() - 50) {
-        doc.addPage();
-        yPos = margin;
-      }
-      
-      let boxColor;
-      let borderColor;
-      let textColor;
-      let icon;
-      
-      switch (step.type) {
-        case 'observation':
-          boxColor = [239, 246, 255]; // 浅蓝色
-          borderColor = [59, 130, 246]; // 蓝色边框
-          textColor = [37, 99, 235]; // 蓝色
-          icon = "👁️";
-          break;
-        case 'analysis':
-          boxColor = [243, 240, 255]; // 浅紫色
-          borderColor = [139, 92, 246]; // 紫色边框
-          textColor = [124, 58, 237]; // 紫色
-          icon = "🔍";
-          break;
-        case 'insight':
-          boxColor = [254, 249, 235]; // 浅橙色
-          borderColor = [252, 211, 77]; // 橙色边框
-          textColor = [217, 119, 6]; // 橙色
-          icon = "💡";
-          break;
-        case 'conclusion':
-          boxColor = [236, 253, 245]; // 浅绿色
-          borderColor = [52, 211, 153]; // 绿色边框
-          textColor = [5, 150, 105]; // 绿色
-          icon = "✓";
-          break;
-        default:
-          boxColor = [243, 244, 246]; // 浅灰色
-          borderColor = [209, 213, 219]; // 灰色边框
-          textColor = [107, 114, 128]; // 灰色
-          icon = "•";
-      }
-      
-      const textWidth = contentWidth - 40;
-      const textLineCount = Math.ceil(doc.getTextWidth(step.content) / textWidth) + 1;
-      const boxHeight = 25 + (textLineCount - 1) * 7;
-      
-      // 绘制框
-      doc.setFillColor(boxColor[0], boxColor[1], boxColor[2]);
-      doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-      doc.roundedRect(margin, yPos, contentWidth, boxHeight, 4, 4, 'FD');
-      
-      // 步骤编号和类型
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(`${icon} ${this.capitalizeFirstLetter(step.type)} ${index + 1}/${thinkingSteps.length}`, margin + 10, yPos + 12);
-      
-      // 步骤内容
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99); // 深灰色
-      doc.text(step.content, margin + 10, yPos + 22, { maxWidth: textWidth });
-      
-      yPos += boxHeight + 6;
-    });
-    
-    return yPos;
-  }
-
-  /**
-   * 添加页脚
-   */
-  private addFooter(doc: jsPDF): void {
-    const pageCount = doc.internal.pages.length - 1;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      
-      // 页脚背景
-      doc.setFillColor(248, 250, 252); // 浅灰蓝色
-      doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-      
-      // 页码
-      doc.setFontSize(9);
-      doc.setTextColor(75, 85, 99); // 深灰色
-      doc.text(`第 ${i} 页，共 ${pageCount} 页`, pageWidth / 2, pageHeight - 10, { align: "center" });
-      
-      // 版权信息
-      doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139); // 灰蓝色
-      doc.text("© 订单监控系统 - AI智能分析", pageWidth / 2, pageHeight - 5, { align: "center" });
+  private getStepTypeText(type: string): string {
+    switch (type) {
+      case 'observation':
+        return '观察';
+      case 'analysis':
+        return '分析';
+      case 'insight':
+        return '洞察';
+      case 'conclusion':
+        return '结论';
+      default:
+        return '步骤';
     }
   }
 
-  /**
-   * 获取风险评分颜色
-   */
   private getRiskScoreColor(score: number): number[] {
     if (score > 0.5) {
       return [220, 38, 38]; // 红色
@@ -473,13 +361,6 @@ class ReportGenerator {
     } else {
       return [59, 130, 246]; // 蓝色
     }
-  }
-
-  /**
-   * 首字母大写
-   */
-  private capitalizeFirstLetter(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }
 

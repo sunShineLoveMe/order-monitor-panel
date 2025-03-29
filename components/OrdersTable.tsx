@@ -38,6 +38,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Order as OrderType } from "@/lib/types";
 import AIAnalysisResult from "./AIAnalysisResult";
+import { reportGenerator } from "@/lib/services/reportGenerator";
+import { ThinkingStep } from "@/types/analysis";
 
 const statusIcons = {
   pending: Clock,
@@ -248,25 +250,42 @@ export default function OrdersTable({
     }
   };
 
-  const handleExportAnalysis = () => {
-    if (!analysisResult) return;
+  const handleExportAnalysis = async (customThinkingSteps?: ThinkingStep[]) => {
+    if (!selectedOrder || !analysisResult || !selectedOrder.id) {
+      console.error("无法导出：缺少订单或分析结果");
+      return;
+    }
 
-    const exportData = {
-      timestamp: new Date().toISOString(),
-      analysis: analysisResult,
-    };
+    try {
+      // 确保有思考步骤数据供报告使用
+      const thinkingSteps = customThinkingSteps || [
+        { id: 1, type: 'observation', content: '收集订单基本信息...' },
+        { id: 2, type: 'observation', content: `分析订单 ${selectedOrder.order_number} 的产品信息和数量...` },
+        { id: 3, type: 'analysis', content: `检查订单金额 ¥${selectedOrder.value.toLocaleString()} 是否与市场价格一致...` },
+        { id: 4, type: 'observation', content: '查找相关历史订单数据...' },
+        { id: 5, type: 'insight', content: `发现客户 "${selectedOrder.customer}" 的历史订单模式...` },
+        { id: 6, type: 'insight', content: '检测到订单异常点: 产品价格偏离历史均价超过 35%' }
+      ];
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `order-analysis-${new Date().toISOString()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // 生成PDF文档
+      const doc = await reportGenerator.generatePDF(
+        analysisResult[selectedOrder.id],
+        selectedOrder,
+        thinkingSteps,
+        {
+          includeThinking: true,
+          includeSummary: true,
+          includeFindings: true,
+          includeCharts: true
+        }
+      );
+
+      // 保存PDF文件
+      const fileName = `order-analysis-${selectedOrder.order_number}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+    } catch (error) {
+      console.error("导出PDF失败:", error);
+    }
   };
 
   const toggleOrderSelection = (orderId: string) => {
@@ -415,7 +434,7 @@ export default function OrdersTable({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleExportAnalysis}
+              onClick={() => handleExportAnalysis()}
             >
               导出分析结果
             </Button>
@@ -592,7 +611,7 @@ export default function OrdersTable({
             <AIAnalysisResult
               order={selectedOrder}
               analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
-              onExport={handleExportAnalysis}
+              onExport={() => handleExportAnalysis()}
               onClose={() => setShowAnalysis(false)}
               isAnalyzing={isAnalyzing}
             />

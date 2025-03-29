@@ -16,7 +16,7 @@ interface ThinkingStep {
 interface AIAnalysisResultProps {
   order: OrderType | null;
   analysisResult: OrderAnalysis | null;
-  onExport: () => void;
+  onExport: (thinkingSteps: ThinkingStep[]) => void;
   onClose: () => void;
   isAnalyzing: boolean;
 }
@@ -587,7 +587,7 @@ export default function AIAnalysisResult({
         <Button 
           variant="default" 
           className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-          onClick={onExport}
+          onClick={() => onExport(thinkingSteps)}
         >
           <Download className="mr-2 h-4 w-4" />
           导出分析报告
