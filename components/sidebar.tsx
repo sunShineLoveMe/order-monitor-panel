@@ -17,6 +17,7 @@ import {
   Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 interface NavItem {
   title: string;
@@ -67,8 +68,18 @@ const navItems: NavItem[] = [
   },
 ];
 
+// 系统设置的子菜单
+const settingsSubItems: NavItem[] = [
+  {
+    title: "模型管理",
+    href: "/settings/models",
+    icon: Cpu,
+  },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
+  const [settingsOpen, setSettingsOpen] = React.useState(pathname.startsWith("/settings"));
 
   return (
     <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
@@ -87,39 +98,45 @@ export default function Sidebar() {
           <Home className="h-4 w-4" />
           <span>首页</span>
         </Link>
-        <Link
-          href="/models"
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
-            pathname === "/models" ? "bg-accent text-foreground" : ""
-          )}
-        >
-          <Cpu className="h-4 w-4" />
-          <span>模型管理</span>
-        </Link>
-        <Link
-          href="/knowledge"
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
-            pathname.startsWith("/knowledge") ? "bg-accent text-foreground" : ""
-          )}
-        >
-          <Database className="h-4 w-4" />
-          <span>知识库管理</span>
-        </Link>
         {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors ${
-              pathname === item.href
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground"
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            <span>{item.title}</span>
-          </Link>
+          <div key={item.href}>
+            <Link
+              href={item.href}
+              className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors ${
+                pathname === item.href || (item.title === "系统设置" && pathname.startsWith("/settings"))
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground"
+              }`}
+              onClick={(e) => {
+                if (item.title === "系统设置") {
+                  setSettingsOpen(!settingsOpen);
+                }
+              }}
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.title}</span>
+            </Link>
+            
+            {/* 系统设置的子菜单 */}
+            {item.title === "系统设置" && settingsOpen && (
+              <div className="ml-5 pl-3 border-l border-border mt-1 mb-1 space-y-1">
+                {settingsSubItems.map((subItem) => (
+                  <Link
+                    key={subItem.href}
+                    href={subItem.href}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors ${
+                      pathname === subItem.href
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <subItem.icon className="w-4 h-4" />
+                    <span className="text-sm">{subItem.title}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </nav>
       <div className="p-4 border-t border-border">

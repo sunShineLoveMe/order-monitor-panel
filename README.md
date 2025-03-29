@@ -174,7 +174,10 @@ order-monitor-panel/
 │   ├── outbound/          # 出库管理页面
 │   ├── inventory/         # 库存管理页面
 │   ├── orders/            # 订单管理页面
-│   └── predictions/       # AI预测分析页面
+│   ├── predictions/       # AI预测分析页面
+│   ├── knowledge/         # 知识库管理页面
+│   └── settings/          # 系统设置页面
+│       └── models/        # 模型管理页面
 ├── components/            # React组件
 │   ├── ui/               # UI基础组件
 │   ├── OrdersTable.tsx   # 订单表格组件
