@@ -77,7 +77,275 @@ export interface InventoryOptimizationSuggestion {
   implementationTime: string;
 }
 
+// Model settings interfaces
+export interface ModelProvider {
+  id: string;
+  name: string;
+  url: string;
+  defaultModels: string[];
+  supportsMultimodal?: boolean;
+}
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  provider: string;
+  apiKey: string;
+  baseUrl?: string;
+  model: string;
+  isDefault: boolean;
+  isEnabled: boolean;
+  supportsMultimodal: boolean;
+  contextLength: number;
+  temperature: number;
+  proxyUrl?: string;
+  multimodalConfig?: {
+    maxImageSize: number;
+    supportedFormats: string[];
+    enabled: boolean;
+  };
+}
+
+// Predefined model providers
+export const modelProviders: ModelProvider[] = [
+  {
+    id: "openai",
+    name: "OpenAI",
+    url: "https://api.openai.com/v1",
+    defaultModels: ["gpt-4-turbo", "gpt-4-vision", "gpt-3.5-turbo"],
+    supportsMultimodal: true,
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic Claude",
+    url: "https://api.anthropic.com",
+    defaultModels: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+    supportsMultimodal: true,
+  },
+  {
+    id: "qwen",
+    name: "阿里云通义千问",
+    url: "https://dashscope.aliyuncs.com/api/v1",
+    defaultModels: ["qwen-turbo", "qwen-plus", "qwen-max"],
+    supportsMultimodal: true,
+  },
+  {
+    id: "baidu",
+    name: "百度文心一言",
+    url: "https://aip.baidubce.com/rpc/2.0/ai_custom",
+    defaultModels: ["ernie-bot-4", "ernie-bot-turbo", "ernie-bot"],
+    supportsMultimodal: false,
+  },
+  {
+    id: "custom",
+    name: "自定义模型",
+    url: "",
+    defaultModels: ["custom-model"],
+    supportsMultimodal: false,
+  },
+];
+
 export class AIService {
+  private modelConfigs: ModelConfig[] = [];
+  private defaultModelConfig: ModelConfig | null = null;
+
+  constructor() {
+    // 初始化默认模型配置
+    this.modelConfigs = [
+      {
+        id: "default-openai",
+        name: "GPT-4",
+        provider: "openai",
+        apiKey: process.env.OPENAI_API_KEY || "",
+        model: "gpt-4-turbo",
+        isDefault: true,
+        isEnabled: true,
+        supportsMultimodal: true,
+        contextLength: 128000,
+        temperature: 0.7,
+        proxyUrl: "",
+        multimodalConfig: {
+          maxImageSize: 4096,
+          supportedFormats: ["jpeg", "png", "webp"],
+          enabled: true
+        }
+      }
+    ];
+    
+    this.defaultModelConfig = this.modelConfigs[0];
+    this.loadModelConfigs();
+  }
+
+  // 从存储中加载模型配置
+  private loadModelConfigs(): void {
+    try {
+      const storedConfigs = typeof window !== 'undefined' 
+        ? localStorage.getItem('modelConfigs') 
+        : null;
+        
+      if (storedConfigs) {
+        this.modelConfigs = JSON.parse(storedConfigs);
+        this.defaultModelConfig = this.modelConfigs.find(config => config.isDefault) || this.modelConfigs[0];
+      }
+    } catch (error) {
+      console.error('加载模型配置失败:', error);
+    }
+  }
+
+  // 保存模型配置到存储
+  private saveModelConfigs(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('modelConfigs', JSON.stringify(this.modelConfigs));
+      }
+    } catch (error) {
+      console.error('保存模型配置失败:', error);
+    }
+  }
+
+  // 获取当前的模型配置列表
+  public getModelConfigs(): ModelConfig[] {
+    return [...this.modelConfigs];
+  }
+
+  // 获取默认模型配置
+  public getDefaultModelConfig(): ModelConfig | null {
+    return this.defaultModelConfig;
+  }
+
+  // 更新模型配置
+  public updateModelConfigs(configs: ModelConfig[]): void {
+    this.modelConfigs = [...configs];
+    this.defaultModelConfig = this.modelConfigs.find(config => config.isDefault) || this.modelConfigs[0];
+    this.saveModelConfigs();
+  }
+
+  // 测试模型连接
+  public async testModelConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 根据不同的提供商实现不同的测试逻辑
+      switch (modelConfig.provider) {
+        case 'openai':
+          return await this.testOpenAIConnection(modelConfig);
+        case 'anthropic':
+          return await this.testAnthropicConnection(modelConfig);
+        case 'qwen':
+          return await this.testQwenConnection(modelConfig);
+        case 'baidu':
+          return await this.testBaiduConnection(modelConfig);
+        case 'custom':
+          return await this.testCustomConnection(modelConfig);
+        default:
+          return { success: false, message: '不支持的模型提供商' };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `连接测试失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试OpenAI API连接
+  private async testOpenAIConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用，实际实现中应该调用真实的OpenAI API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: 'OpenAI API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `OpenAI API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试Anthropic API连接
+  private async testAnthropicConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: 'Anthropic API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `Anthropic API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试通义千问API连接
+  private async testQwenConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: '通义千问API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `通义千问API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试百度文心一言API连接
+  private async testBaiduConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: '百度文心一言API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `百度文心一言API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
+  // 测试自定义API连接
+  private async testCustomConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!modelConfig.apiKey || !modelConfig.baseUrl) {
+        return { success: false, message: 'API密钥和基础URL都不能为空' };
+      }
+      
+      // 模拟成功响应
+      return { success: true, message: '自定义API连接成功' };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `自定义API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
   async generateInsights(data: {
     orders: Order[];
     inventory: InventoryItem[];

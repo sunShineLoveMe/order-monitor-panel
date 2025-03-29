@@ -9,6 +9,7 @@ import {
   PackageMinus, 
   ClipboardList, 
   BarChart3, 
+  BookOpen,
   Settings, 
   LucideIcon 
 } from "lucide-react";
@@ -49,6 +50,11 @@ const navItems: NavItem[] = [
     title: "数据分析",
     href: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "知识库",
+    href: "/knowledge",
+    icon: BookOpen,
   },
   {
     title: "系统设置",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -8,83 +8,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Plus, Save, AlertCircle } from "lucide-react";
-
-// 定义模型类型和提供商接口
-interface ModelProvider {
-  id: string;
-  name: string;
-  url: string;
-  defaultModels: string[];
-}
-
-interface ModelConfig {
-  id: string;
-  name: string;
-  provider: string;
-  apiKey: string;
-  baseUrl?: string;
-  model: string;
-  isDefault: boolean;
-  isEnabled: boolean;
-  supportsMultimodal: boolean;
-  contextLength: number;
-  temperature: number;
-}
-
-// 预定义的模型提供商
-const modelProviders: ModelProvider[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    url: "https://api.openai.com/v1",
-    defaultModels: ["gpt-4-turbo", "gpt-4-vision", "gpt-3.5-turbo"],
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic Claude",
-    url: "https://api.anthropic.com",
-    defaultModels: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-  },
-  {
-    id: "qwen",
-    name: "阿里云通义千问",
-    url: "https://dashscope.aliyuncs.com/api/v1",
-    defaultModels: ["qwen-turbo", "qwen-plus", "qwen-max"],
-  },
-  {
-    id: "baidu",
-    name: "百度文心一言",
-    url: "https://aip.baidubce.com/rpc/2.0/ai_custom",
-    defaultModels: ["ernie-bot-4", "ernie-bot-turbo", "ernie-bot"],
-  },
-  {
-    id: "custom",
-    name: "自定义模型",
-    url: "",
-    defaultModels: ["custom-model"],
-  },
-];
+import { Trash2, Plus, Save, AlertCircle, Check, X } from "lucide-react";
+import { ModelConfig, ModelProvider, modelProviders, aiService } from "@/lib/services/ai";
 
 export default function ModelSettingsManager() {
-  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([
-    {
-      id: "default-openai",
-      name: "GPT-4",
-      provider: "openai",
-      apiKey: "",
-      model: "gpt-4-turbo",
-      isDefault: true,
-      isEnabled: true,
-      supportsMultimodal: true,
-      contextLength: 128000,
-      temperature: 0.7,
-    },
-  ]);
-  
+  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("models");
   const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
+  const [testStatus, setTestStatus] = useState<{id: string, status: 'idle' | 'loading' | 'success' | 'error', message?: string}>({id: '', status: 'idle'});
+
+  // 页面加载时获取已有的模型配置
+  useEffect(() => {
+    const configs = aiService.getModelConfigs();
+    if (configs && configs.length > 0) {
+      setModelConfigs(configs);
+    } else {
+      // 如果没有配置，使用默认配置
+      setModelConfigs([
+        {
+          id: "default-openai",
+          name: "GPT-4",
+          provider: "openai",
+          apiKey: "",
+          model: "gpt-4-turbo",
+          isDefault: true,
+          isEnabled: true,
+          supportsMultimodal: true,
+          contextLength: 128000,
+          temperature: 0.7,
+          proxyUrl: "",
+          multimodalConfig: {
+            maxImageSize: 4096,
+            supportedFormats: ["jpeg", "png", "webp"],
+            enabled: true
+          }
+        }
+      ]);
+    }
+  }, []);
 
   const handleAddModel = () => {
     const newModel: ModelConfig = {
@@ -98,6 +60,12 @@ export default function ModelSettingsManager() {
       supportsMultimodal: true,
       contextLength: 128000,
       temperature: 0.7,
+      proxyUrl: "",
+      multimodalConfig: {
+        maxImageSize: 4096,
+        supportedFormats: ["jpeg", "png", "webp"],
+        enabled: false
+      }
     };
     setModelConfigs([...modelConfigs, newModel]);
     setEditingModel(newModel);
@@ -132,7 +100,7 @@ export default function ModelSettingsManager() {
     );
   };
 
-  const handleModelChange = (field: string, value: string | boolean | number) => {
+  const handleModelChange = (field: string, value: string | boolean | number | object) => {
     if (!editingModel) return;
     
     const updated = {
@@ -147,12 +115,14 @@ export default function ModelSettingsManager() {
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // 模拟保存设置的API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Model configurations saved:", modelConfigs);
-      // 这里应该有一个真实的API调用来保存模型配置
+      // 调用 AIService 保存模型配置
+      aiService.updateModelConfigs(modelConfigs);
+      
+      // 显示成功消息
+      alert("模型配置保存成功");
     } catch (error) {
       console.error("Failed to save model configurations:", error);
+      alert(`保存配置失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setLoading(false);
     }
@@ -160,6 +130,37 @@ export default function ModelSettingsManager() {
 
   const getProviderByID = (id: string) => {
     return modelProviders.find(provider => provider.id === id) || modelProviders[0];
+  };
+
+  // 测试模型API连接
+  const handleTestConnection = async () => {
+    if (!editingModel) return;
+    
+    setTestStatus({id: editingModel.id, status: 'loading'});
+    try {
+      // 使用AIService测试连接
+      const result = await aiService.testModelConnection(editingModel);
+      
+      if (result.success) {
+        setTestStatus({
+          id: editingModel.id, 
+          status: 'success', 
+          message: result.message
+        });
+      } else {
+        setTestStatus({
+          id: editingModel.id, 
+          status: 'error', 
+          message: result.message
+        });
+      }
+    } catch (error) {
+      setTestStatus({
+        id: editingModel.id, 
+        status: 'error', 
+        message: `测试出错: ${error instanceof Error ? error.message : '未知错误'}`
+      });
+    }
   };
 
   return (
@@ -212,6 +213,9 @@ export default function ModelSettingsManager() {
                         {!config.isEnabled && (
                           <span className="px-2 py-0.5 text-xs bg-destructive/20 text-destructive rounded-full">已禁用</span>
                         )}
+                        {config.supportsMultimodal && config.multimodalConfig?.enabled && (
+                          <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-600 rounded-full">多模态</span>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -243,7 +247,9 @@ export default function ModelSettingsManager() {
                           id="modelName"
                           value={editingModel.name}
                           onChange={(e) => handleModelChange("name", e.target.value)}
+                          placeholder="输入便于识别的名称"
                         />
+                        <p className="text-xs text-muted-foreground">自定义名称，便于在系统中识别</p>
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="modelProvider">模型提供商</Label>
@@ -252,7 +258,7 @@ export default function ModelSettingsManager() {
                           onValueChange={(value) => handleModelChange("provider", value)}
                         >
                           <SelectTrigger id="modelProvider">
-                            <SelectValue placeholder="选择提供商" />
+                            <SelectValue placeholder="选择模型提供商" />
                           </SelectTrigger>
                           <SelectContent>
                             {modelProviders.map(provider => (
@@ -262,41 +268,60 @@ export default function ModelSettingsManager() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">选择模型供应商平台</p>
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="grid gap-2">
                       <Label htmlFor="apiKey">API密钥</Label>
                       <Input 
                         id="apiKey"
                         type="password"
                         value={editingModel.apiKey}
                         onChange={(e) => handleModelChange("apiKey", e.target.value)}
+                        placeholder="输入API密钥"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        从提供商获取的API密钥，用于身份验证。系统内加密存储
+                      </p>
                     </div>
-                    
-                    {editingModel.provider === 'custom' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="baseUrl">API基础URL</Label>
-                        <Input 
-                          id="baseUrl"
-                          type="text"
-                          value={editingModel.baseUrl || ''}
-                          onChange={(e) => handleModelChange("baseUrl", e.target.value)}
-                          placeholder="https://your-api-endpoint.com"
-                        />
-                      </div>
-                    )}
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="modelName">模型</Label>
+                        <Label htmlFor="baseUrl">API端点URL</Label>
+                        <Input 
+                          id="baseUrl"
+                          value={editingModel.baseUrl || getProviderByID(editingModel.provider).url}
+                          onChange={(e) => handleModelChange("baseUrl", e.target.value)}
+                          placeholder="例如：https://api.openai.com/v1"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          API的基础URL，使用默认值或指定自定义端点
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="proxyUrl">代理服务器 (可选)</Label>
+                        <Input 
+                          id="proxyUrl"
+                          value={editingModel.proxyUrl || ""}
+                          onChange={(e) => handleModelChange("proxyUrl", e.target.value)}
+                          placeholder="例如：http://your-proxy:8080"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          如需通过代理访问API，请设置代理服务器地址
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="modelVersion">模型版本</Label>
                         <Select 
                           value={editingModel.model}
                           onValueChange={(value) => handleModelChange("model", value)}
                         >
-                          <SelectTrigger id="modelName">
-                            <SelectValue placeholder="选择模型" />
+                          <SelectTrigger id="modelVersion">
+                            <SelectValue placeholder="选择模型版本" />
                           </SelectTrigger>
                           <SelectContent>
                             {getProviderByID(editingModel.provider).defaultModels.map(model => (
@@ -304,67 +329,85 @@ export default function ModelSettingsManager() {
                                 {model}
                               </SelectItem>
                             ))}
-                            <SelectItem value="custom">自定义...</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          选择特定的模型版本，不同版本具有不同的能力和价格
+                        </p>
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="contextLength">上下文长度</Label>
                         <Select 
-                          value={editingModel.contextLength.toString()}
+                          value={String(editingModel.contextLength)}
                           onValueChange={(value) => handleModelChange("contextLength", parseInt(value))}
                         >
                           <SelectTrigger id="contextLength">
                             <SelectValue placeholder="选择上下文长度" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="8000">8K</SelectItem>
-                            <SelectItem value="16000">16K</SelectItem>
-                            <SelectItem value="32000">32K</SelectItem>
-                            <SelectItem value="128000">128K</SelectItem>
+                            <SelectItem value="4000">4K tokens</SelectItem>
+                            <SelectItem value="8000">8K tokens</SelectItem>
+                            <SelectItem value="16000">16K tokens</SelectItem>
+                            <SelectItem value="32000">32K tokens</SelectItem>
+                            <SelectItem value="64000">64K tokens</SelectItem>
+                            <SelectItem value="128000">128K tokens</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          模型能处理的最大上下文长度，较长的上下文可能增加成本
+                        </p>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="temperature">Temperature (创造性)</Label>
-                        <div className="flex items-center space-x-2">
+                        <Label htmlFor="temperature">Temperature (温度)</Label>
+                        <div className="flex items-center gap-2">
                           <Input 
                             id="temperature"
                             type="range"
                             min="0"
-                            max="2"
+                            max="1"
                             step="0.1"
                             value={editingModel.temperature}
                             onChange={(e) => handleModelChange("temperature", parseFloat(e.target.value))}
-                            className="flex-1"
                           />
-                          <span className="w-10 text-center">{editingModel.temperature}</span>
+                          <span className="w-10 text-center">
+                            {editingModel.temperature.toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          控制输出的随机性：低值更确定，高值更创造性
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="flex flex-col space-y-1.5">
+                          <Label htmlFor="testConnection">连接测试</Label>
+                          <Button 
+                            id="testConnection"
+                            variant="outline" 
+                            onClick={handleTestConnection}
+                            disabled={testStatus.status === 'loading' || !editingModel.apiKey}
+                            className="flex items-center gap-2"
+                          >
+                            {testStatus.status === 'loading' ? 
+                              "测试中..." : 
+                              "测试API连接"
+                            }
+                          </Button>
+                          {testStatus.id === editingModel.id && testStatus.status !== 'idle' && (
+                            <p className={`text-xs mt-1 ${
+                              testStatus.status === 'success' ? 'text-green-600' : 
+                              testStatus.status === 'error' ? 'text-red-600' : ''
+                            }`}>
+                              {testStatus.message}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-4 pt-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="supportsMultimodal" className="flex-1">支持多模态输入</Label>
-                        <Switch 
-                          id="supportsMultimodal" 
-                          checked={editingModel.supportsMultimodal}
-                          onCheckedChange={(checked: boolean) => handleModelChange("supportsMultimodal", checked)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="isDefault" className="flex-1">设为默认模型</Label>
-                        <Switch 
-                          id="isDefault" 
-                          checked={editingModel.isDefault}
-                          onCheckedChange={(checked: boolean) => handleModelChange("isDefault", checked)}
-                        />
-                      </div>
-                      
+                    <div className="space-y-2 pt-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="isEnabled" className="flex-1">启用此模型</Label>
                         <Switch 
@@ -373,81 +416,210 @@ export default function ModelSettingsManager() {
                           onCheckedChange={(checked: boolean) => handleModelChange("isEnabled", checked)}
                         />
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        启用或禁用此模型，禁用后不会被系统使用
+                      </p>
                     </div>
                     
-                    {!editingModel.apiKey && (
-                      <div className="flex items-center p-3 text-sm bg-yellow-50 border border-yellow-200 rounded-md">
-                        <AlertCircle className="h-4 w-4 text-yellow-500 mr-2" />
-                        <span className="text-yellow-700">请提供API密钥以使用此模型</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="isDefault" className="flex-1">设为默认模型</Label>
+                        <Switch 
+                          id="isDefault" 
+                          checked={editingModel.isDefault}
+                          onCheckedChange={(checked: boolean) => handleModelChange("isDefault", checked)}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        设为默认后，系统将优先使用该模型
+                      </p>
+                    </div>
+                    
+                    {getProviderByID(editingModel.provider).supportsMultimodal && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="supportsMultimodal" className="flex-1">启用多模态支持</Label>
+                          <Switch 
+                            id="supportsMultimodal" 
+                            checked={editingModel.multimodalConfig?.enabled || false}
+                            onCheckedChange={(checked: boolean) => {
+                              handleModelChange("multimodalConfig", {
+                                ...(editingModel.multimodalConfig || {
+                                  maxImageSize: 4096,
+                                  supportedFormats: ["jpeg", "png", "webp"]
+                                }),
+                                enabled: checked
+                              });
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          启用后，系统将能够处理图像等多模态输入
+                        </p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    选择一个模型进行编辑，或添加一个新模型
+                  <div className="flex items-center justify-center h-full min-h-[300px]">
+                    <div className="text-center text-muted-foreground">
+                      <AlertCircle className="h-10 w-10 mx-auto mb-2" />
+                      <h3 className="text-lg font-medium">选择模型</h3>
+                      <p className="text-sm mt-1">从左侧选择一个模型进行编辑，或添加新模型</p>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </TabsContent>
           
-          <TabsContent value="advanced">
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="requestTimeout">请求超时 (秒)</Label>
-                <Input 
-                  id="requestTimeout"
-                  type="number"
-                  defaultValue="60"
-                  min="10"
-                  max="300"
-                />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="maxTokens">最大生成Token数</Label>
-                <Input 
-                  id="maxTokens"
-                  type="number"
-                  defaultValue="4000"
-                  min="100"
-                  max="8000"
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <Label htmlFor="enableFallback" className="flex-1">
-                  启用模型故障转移
-                  <p className="text-xs text-muted-foreground mt-1">
-                    当主要模型不可用时自动切换到备用模型
+          <TabsContent value="advanced" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>多模态配置</CardTitle>
+                <CardDescription>
+                  配置支持多模态（如图像处理）能力的参数
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {editingModel && editingModel.multimodalConfig?.enabled ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="maxImageSize">最大图像尺寸 (像素)</Label>
+                        <Select 
+                          value={String(editingModel.multimodalConfig?.maxImageSize || 4096)}
+                          onValueChange={(value) => {
+                            handleModelChange("multimodalConfig", {
+                              ...(editingModel.multimodalConfig || {
+                                enabled: true,
+                                supportedFormats: ["jpeg", "png", "webp"]
+                              }),
+                              maxImageSize: parseInt(value)
+                            });
+                          }}
+                        >
+                          <SelectTrigger id="maxImageSize">
+                            <SelectValue placeholder="选择最大尺寸" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1024">1024 x 1024</SelectItem>
+                            <SelectItem value="2048">2048 x 2048</SelectItem>
+                            <SelectItem value="4096">4096 x 4096</SelectItem>
+                            <SelectItem value="8192">8192 x 8192</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          支持处理的最大图像尺寸，较大尺寸可能影响性能和成本
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>支持的图像格式</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {["jpeg", "png", "webp", "gif", "avif", "tiff"].map(format => {
+                            const isSelected = editingModel.multimodalConfig?.supportedFormats?.includes(format) || false;
+                            return (
+                              <Button
+                                key={format}
+                                variant={isSelected ? "default" : "outline"}
+                                className="h-8 rounded-full"
+                                size="sm"
+                                onClick={() => {
+                                  const currentFormats = editingModel.multimodalConfig?.supportedFormats || [];
+                                  const newFormats = isSelected 
+                                    ? currentFormats.filter(f => f !== format)
+                                    : [...currentFormats, format];
+                                  
+                                  handleModelChange("multimodalConfig", {
+                                    ...(editingModel.multimodalConfig || {
+                                      enabled: true,
+                                      maxImageSize: 4096
+                                    }),
+                                    supportedFormats: newFormats
+                                  });
+                                }}
+                              >
+                                {format.toUpperCase()}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          选择系统支持处理的图像格式
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
+                    <h3 className="text-lg font-medium">未启用多模态支持</h3>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">
+                      请先在「模型配置」标签页中选择一个模型并启用多模态支持
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>系统行为设置</CardTitle>
+                <CardDescription>
+                  配置AI模型调用的全局行为和故障处理策略
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="enableFailover" className="flex-1">启用模型故障转移</Label>
+                    <Switch 
+                      id="enableFailover" 
+                      checked={true}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    当默认模型不可用或出错时，自动尝试使用其他可用模型
                   </p>
-                </Label>
-                <Switch 
-                  id="enableFallback" 
-                  defaultChecked={true}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <Label htmlFor="enableCache" className="flex-1">
-                  启用模型响应缓存
-                  <p className="text-xs text-muted-foreground mt-1">
-                    缓存相同输入的模型响应以减少API调用
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="retryOnFailure" className="flex-1">失败自动重试</Label>
+                    <Switch 
+                      id="retryOnFailure" 
+                      checked={true}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    API调用失败时自动尝试重试，最多3次
                   </p>
-                </Label>
-                <Switch 
-                  id="enableCache" 
-                  defaultChecked={true}
-                />
-              </div>
-            </div>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="requestTimeout">请求超时 (秒)</Label>
+                  <Select defaultValue="90">
+                    <SelectTrigger id="requestTimeout">
+                      <SelectValue placeholder="选择超时时间" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30秒</SelectItem>
+                      <SelectItem value="60">60秒</SelectItem>
+                      <SelectItem value="90">90秒</SelectItem>
+                      <SelectItem value="120">120秒</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    模型API请求的最大等待时间，超时将自动取消
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline">重置</Button>
+      <CardFooter>
         <Button 
-          onClick={handleSaveSettings}
+          onClick={handleSaveSettings} 
           disabled={loading}
           className="flex items-center gap-2"
         >
