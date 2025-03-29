@@ -71,6 +71,7 @@
 - **Anthropic**: https://api.anthropic.com
 - **阿里云**: https://dashscope.aliyuncs.com/api/v1
 - **百度**: https://aip.baidubce.com/rpc/2.0/ai_custom
+- **硅基流动**: https://api.siliconflow.cn/v1/
 - **自定义**: 可配置任意符合规范的端点
 
 ### 注意事项
@@ -220,12 +221,59 @@ AI系统会持续监控库存状态，提供：
 4. 支持多模态分析功能的开启/关闭
 5. 可设置默认模型与故障转移策略
 
+### 硅基流动API接入指南
+
+系统支持接入硅基流动API，并能自动加载可用模型列表，包括DeepSeek、Llama、Mistral等多种模型：
+
+1. **配置硅基流动API**：
+   - 在系统设置中，选择"模型设置"
+   - 点击"添加模型"按钮
+   - 在"模型提供商"下拉菜单中选择"硅基流动"
+   - 在"模型名称"字段中输入便于识别的名称
+   - 填写您的API密钥，格式为：`sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+   - API端点URL填写：`https://api.siliconflow.cn/v1/`
+
+2. **测试API连接**：
+   - 完成基本信息填写后，点击"测试API连接"按钮
+   - 系统将验证API密钥的有效性
+   - 连接成功后，系统会自动调用硅基流动的 `/models?type=text` API获取所有可用文本模型
+   - 界面将显示"硅基流动API连接成功，找到 X 个可用模型"的提示
+
+3. **查看可用模型列表**：
+   - 成功连接后，点击"模型版本"下拉菜单
+   - 所有可用的模型将按提供商分组展示，包括：
+     - **DeepSeek**: deepseek系列模型
+     - **Llama**: llama-3等系列模型
+     - **Mistral**: mistral-7b、mixtral-8x7b等系列模型
+     - **Yi**: yi-34b等系列模型
+     - **Qwen**: 通义千问系列模型
+     - **CodeLlama**: 代码专用模型
+   - 所有模型旁边都会显示闪动的绿色指示点，表示模型实时可用状态
+
+4. **选择并保存模型**：
+   - 从列表中选择您需要的模型
+   - 根据需要调整其他参数（上下文长度、温度等）
+   - 可以设置为默认模型或启用/禁用此模型
+   - 完成设置后，点击页面底部的"保存设置"按钮
+
+5. **可能的API参数调整**：
+   - 如果您希望获取更特定类型的模型，可以修改API端点URL
+   - 例如，获取所有文本模型：`https://api.siliconflow.cn/v1/models?type=text`
+   - 获取特定子类型的模型：`https://api.siliconflow.cn/v1/models?sub_type=chat`
+   - 具体参数参考[硅基流动API文档](https://docs.siliconflow.cn/cn/api-reference/models/get-model-list)
+
+通过以上步骤，您可以轻松连接硅基流动API，自动获取最新的可用模型列表（包括DeepSeek等各种模型），并直观地看到每个模型的可用状态。系统会根据不同的模型系列自动分类显示，方便您快速找到所需的模型。
+
 ## 更新日志
 
 ### v0.6.0
 - 添加了灵活的AI模型配置功能
   - 新增模型设置页面，支持多种大模型API配置
   - 增加对OpenAI、Claude、通义千问、文心一言等模型的支持
+  - 添加对硅基流动API的完整支持：
+    - 自动获取最新可用模型列表
+    - 支持DeepSeek、Llama、Mistral等多种模型系列
+    - 添加模型分组显示和实时状态指示功能
   - 添加多模态支持配置，可根据需求启用/禁用
   - 优化模型参数调整界面，提供友好的用户体验
   - 实现模型故障转移机制，提高系统稳定性

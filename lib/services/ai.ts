@@ -110,7 +110,7 @@ export interface ModelConfig {
 export interface EmbeddingModelConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'huggingface' | 'custom';
+  provider: 'openai' | 'huggingface' | 'siliconflow' | 'custom';
   model: string;
   dimensions: number;
   maxInputLength: number;
@@ -118,6 +118,21 @@ export interface EmbeddingModelConfig {
   isEnabled?: boolean;
   apiKey?: string;
   baseUrl?: string;
+}
+
+// 模型可用性接口
+export interface ModelAvailability {
+  modelId: string;
+  available: boolean;
+  lastChecked: number; // 时间戳
+}
+
+// 硅基流动模型接口
+interface SiliconFlowModel {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
 }
 
 // Predefined model providers
@@ -148,6 +163,13 @@ export const modelProviders: ModelProvider[] = [
     name: "百度文心一言",
     url: "https://aip.baidubce.com/rpc/2.0/ai_custom",
     defaultModels: ["ernie-bot-4", "ernie-bot-turbo", "ernie-bot"],
+    supportsMultimodal: false,
+  },
+  {
+    id: "siliconflow",
+    name: "硅基流动",
+    url: "https://api.siliconflow.cn/v1",
+    defaultModels: ["llama-3-70b-instruct", "llama-3-8b-instruct", "mixtral-8x7b-instruct"],
     supportsMultimodal: false,
   },
   {
@@ -300,7 +322,7 @@ export class AIService {
   }
 
   // 测试模型连接
-  public async testModelConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  public async testModelConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 根据不同的提供商实现不同的测试逻辑
       switch (modelConfig.provider) {
@@ -312,6 +334,8 @@ export class AIService {
           return await this.testQwenConnection(modelConfig);
         case 'baidu':
           return await this.testBaiduConnection(modelConfig);
+        case 'siliconflow':
+          return await this.testSiliconFlowConnection(modelConfig);
         case 'custom':
           return await this.testCustomConnection(modelConfig);
         default:
@@ -326,7 +350,7 @@ export class AIService {
   }
 
   // 测试OpenAI API连接
-  private async testOpenAIConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  private async testOpenAIConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 模拟API调用，实际实现中应该调用真实的OpenAI API
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -346,7 +370,7 @@ export class AIService {
   }
 
   // 测试Anthropic API连接
-  private async testAnthropicConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  private async testAnthropicConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 模拟API调用
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -366,7 +390,7 @@ export class AIService {
   }
 
   // 测试通义千问API连接
-  private async testQwenConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  private async testQwenConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 模拟API调用
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -386,7 +410,7 @@ export class AIService {
   }
 
   // 测试百度文心一言API连接
-  private async testBaiduConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  private async testBaiduConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 模拟API调用
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -405,8 +429,94 @@ export class AIService {
     }
   }
 
+  // 测试硅基流动API连接并获取可用模型
+  private async testSiliconFlowConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
+    try {
+      if (!modelConfig.apiKey) {
+        return { success: false, message: 'API密钥不能为空' };
+      }
+      
+      // 处理API端点URL，移除可能的@前缀
+      let baseUrl = modelConfig.baseUrl || 'https://api.siliconflow.cn/v1';
+      if (baseUrl.startsWith('@')) {
+        baseUrl = baseUrl.substring(1);
+      }
+      
+      // 如果用户输入了完整的models端点，则直接使用
+      let url = baseUrl;
+      if (!url.endsWith('/models')) {
+        // 确保URL结尾没有多余的斜杠
+        if (url.endsWith('/')) {
+          url = url.slice(0, -1);
+        }
+        // 添加models路径和type参数
+        url = `${url}/models?type=text`;
+      }
+      
+      console.log('请求硅基流动API:', url);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${modelConfig.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`请求失败: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        // 提取模型ID列表
+        if (data && data.data && Array.isArray(data.data)) {
+          const modelList = data.data.map((model: SiliconFlowModel) => model.id);
+          
+          // 保存模型列表及其可用状态到localStorage
+          if (typeof window !== 'undefined' && modelList.length > 0) {
+            const modelAvailability: Record<string, ModelAvailability> = {};
+            modelList.forEach((model: string) => {
+              modelAvailability[model] = {
+                modelId: model,
+                available: true,
+                lastChecked: Date.now()
+              };
+            });
+            localStorage.setItem('siliconflow-models-availability', JSON.stringify(modelAvailability));
+          }
+          
+          return { 
+            success: true, 
+            message: `硅基流动API连接成功，找到 ${modelList.length} 个可用模型`,
+            availableModels: modelList
+          };
+        }
+        
+        return { 
+          success: true, 
+          message: '硅基流动API连接成功，但未找到可用模型',
+          availableModels: []
+        };
+      } catch (error) {
+        console.error('获取硅基流动模型列表失败:', error);
+        return {
+          success: false,
+          message: `获取模型列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+        };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `硅基流动API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  }
+
   // 测试自定义API连接
-  private async testCustomConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string}> {
+  private async testCustomConnection(modelConfig: ModelConfig): Promise<{success: boolean, message: string, availableModels?: string[]}> {
     try {
       // 模拟API调用
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -894,6 +1004,23 @@ export class AIService {
     // 确保至少有一个默认模型
     this.defaultEmbeddingConfig = this.embeddingConfigs.find(config => config.isDefault) || this.embeddingConfigs[0];
     this.saveEmbeddingConfigs();
+  }
+
+  // 获取模型可用性状态
+  public getModelAvailability(provider: string): Record<string, ModelAvailability> {
+    if (typeof window === 'undefined') return {};
+    
+    const storageKey = `${provider}-models-availability`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (!stored) return {};
+    
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('解析模型可用性数据出错:', e);
+      return {};
+    }
   }
 }
 

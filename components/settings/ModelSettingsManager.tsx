@@ -6,10 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectGroup } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Trash2, Plus, Save, AlertCircle, Check, X, Database } from "lucide-react";
 import { ModelConfig, ModelProvider, modelProviders, EmbeddingModelConfig, embeddingModels, aiService } from "@/lib/services/ai";
+import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function ModelSettingsManager() {
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
@@ -18,7 +20,17 @@ export default function ModelSettingsManager() {
   const [activeTab, setActiveTab] = useState("models");
   const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
   const [editingEmbedding, setEditingEmbedding] = useState<EmbeddingModelConfig | null>(null);
-  const [testStatus, setTestStatus] = useState<{id: string, status: 'idle' | 'loading' | 'success' | 'error', message?: string}>({id: '', status: 'idle'});
+  const [testStatus, setTestStatus] = useState<{
+    id: string, 
+    status: 'idle' | 'loading' | 'success' | 'error', 
+    message?: string, 
+    availableModels?: string[]
+  }>({id: '', status: 'idle'});
+  const [availableModelList, setAvailableModelList] = useState<string[]>([]);
+  const [pulsatingModels, setPulsatingModels] = useState<{[key: string]: boolean}>({});
+
+  const { toast } = useToast();
+  const router = useRouter();
 
   // 页面加载时获取已有的模型配置
   useEffect(() => {
@@ -165,9 +177,35 @@ export default function ModelSettingsManager() {
     );
   };
 
+  // 格式化API端点URL
+  const formatApiUrl = (url: string): string => {
+    // 移除可能的@前缀
+    let formattedUrl = url.trim();
+    if (formattedUrl.startsWith('@')) {
+      formattedUrl = formattedUrl.substring(1);
+    }
+    
+    // 确保URL有正确的协议
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+    
+    // 移除URL末尾可能的斜杠
+    if (formattedUrl.endsWith('/')) {
+      formattedUrl = formattedUrl.slice(0, -1);
+    }
+    
+    return formattedUrl;
+  };
+
   // 更改聊天模型属性
   const handleModelChange = (field: string, value: string | boolean | number | object) => {
     if (!editingModel) return;
+    
+    // 格式化API端点URL
+    if (field === "baseUrl" && typeof value === 'string') {
+      value = formatApiUrl(value);
+    }
     
     const updated = {
       ...editingModel,
@@ -202,10 +240,19 @@ export default function ModelSettingsManager() {
       aiService.updateEmbeddingConfigs(embeddingConfigs);
       
       // 显示成功消息
-      alert("模型配置保存成功");
+      toast({
+        title: "模型配置保存成功",
+        description: "所有模型配置已成功保存到服务器。"
+      });
+      
+      // 不再跳转到首页，保持在当前页面
     } catch (error) {
       console.error("Failed to save model configurations:", error);
-      alert(`保存配置失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast({
+        variant: "destructive",
+        title: "保存失败",
+        description: `保存配置失败: ${error instanceof Error ? error.message : '未知错误'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -220,17 +267,37 @@ export default function ModelSettingsManager() {
   const handleTestConnection = async () => {
     if (!editingModel) return;
     
+    console.log('测试API连接:', {
+      provider: editingModel.provider,
+      baseUrl: editingModel.baseUrl,
+      apiKey: editingModel.apiKey ? '已设置' : '未设置'
+    });
+    
     setTestStatus({id: editingModel.id, status: 'loading'});
     try {
       // 使用AIService测试连接
       const result = await aiService.testModelConnection(editingModel);
+      console.log('API连接测试结果:', result);
       
       if (result.success) {
         setTestStatus({
           id: editingModel.id, 
           status: 'success', 
-          message: result.message
+          message: result.message,
+          availableModels: result.availableModels
         });
+
+        // 如果是硅基流动API并且返回了可用模型列表
+        if (editingModel.provider === 'siliconflow' && result.availableModels?.length) {
+          setAvailableModelList(result.availableModels);
+          
+          // 设置闪动效果
+          const pulsating: {[key: string]: boolean} = {};
+          result.availableModels.forEach(model => {
+            pulsating[model] = true;
+          });
+          setPulsatingModels(pulsating);
+        }
       } else {
         setTestStatus({
           id: editingModel.id, 
@@ -239,6 +306,7 @@ export default function ModelSettingsManager() {
         });
       }
     } catch (error) {
+      console.error('测试连接时出错:', error);
       setTestStatus({
         id: editingModel.id, 
         status: 'error', 
@@ -276,6 +344,64 @@ export default function ModelSettingsManager() {
         message: `测试出错: ${error instanceof Error ? error.message : '未知错误'}`
       });
     }
+  };
+
+  // 动态加载当前提供商的可用模型列表
+  const getAvailableModels = () => {
+    if (editingModel?.provider === 'siliconflow' && availableModelList.length > 0) {
+      // 对硅基流动模型进行分类展示
+      return availableModelList;
+    }
+    return getProviderByID(editingModel?.provider || 'openai').defaultModels;
+  };
+
+  // 获取模型提供商名称
+  const getModelProviderName = (modelId: string): string => {
+    if (modelId.startsWith('deepseek')) {
+      return 'DeepSeek';
+    } else if (modelId.startsWith('llama')) {
+      return 'Llama';
+    } else if (modelId.startsWith('qwen')) {
+      return 'Qwen';
+    } else if (modelId.startsWith('yi')) {
+      return 'Yi';
+    } else if (modelId.startsWith('mistral') || modelId.startsWith('mixtral')) {
+      return 'Mistral';
+    } else if (modelId.startsWith('codellama')) {
+      return 'CodeLlama';
+    } else {
+      return '其他';
+    }
+  };
+
+  // 对模型列表进行分组
+  const getGroupedModels = () => {
+    if (editingModel?.provider !== 'siliconflow' || availableModelList.length === 0) {
+      return null;
+    }
+    
+    // 按提供商分组
+    const groupedModels: Record<string, string[]> = {};
+    availableModelList.forEach(model => {
+      const provider = getModelProviderName(model);
+      if (!groupedModels[provider]) {
+        groupedModels[provider] = [];
+      }
+      groupedModels[provider].push(model);
+    });
+    
+    return groupedModels;
+  };
+
+  // 闪动的绿点CSS样式
+  const pulsatingDotStyle = {
+    display: 'inline-block',
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    backgroundColor: '#10b981', // 绿色
+    marginRight: '8px',
+    animation: 'pulse 1.5s infinite',
   };
 
   return (
@@ -441,17 +567,43 @@ export default function ModelSettingsManager() {
                             <SelectValue placeholder="选择模型版本" />
                           </SelectTrigger>
                           <SelectContent>
-                            {getProviderByID(editingModel.provider).defaultModels.map(model => (
-                              <SelectItem key={model} value={model}>
-                                {model}
-                              </SelectItem>
-                            ))}
+                            {editingModel?.provider === 'siliconflow' && availableModelList.length > 0 ? (
+                              Object.entries(getGroupedModels() || {}).map(([provider, models]) => (
+                                <SelectGroup key={provider}>
+                                  <SelectLabel className="text-xs font-bold px-2 py-1 bg-muted mt-1">
+                                    {provider}
+                                  </SelectLabel>
+                                  {models.map(model => (
+                                    <SelectItem key={model} value={model}>
+                                      <div className="flex items-center">
+                                        {pulsatingModels[model] && (
+                                          <span style={pulsatingDotStyle} />
+                                        )}
+                                        {model}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              ))
+                            ) : (
+                              getAvailableModels().map(model => (
+                                <SelectItem key={model} value={model}>
+                                  <div className="flex items-center">
+                                    {editingModel?.provider === 'siliconflow' && pulsatingModels[model] && (
+                                      <span style={pulsatingDotStyle} />
+                                    )}
+                                    {model}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
                           选择特定的模型版本，不同版本具有不同的能力和价格
                         </p>
                       </div>
+                      
                       <div className="grid gap-2">
                         <Label htmlFor="contextLength">上下文长度</Label>
                         <Select 
@@ -497,30 +649,45 @@ export default function ModelSettingsManager() {
                           控制输出的随机性：低值更确定，高值更创造性
                         </p>
                       </div>
+                      
                       <div className="grid gap-2">
-                        <div className="flex flex-col space-y-1.5">
-                          <Label htmlFor="testConnection">连接测试</Label>
-                          <Button 
-                            id="testConnection"
-                            variant="outline" 
-                            onClick={handleTestConnection}
-                            disabled={testStatus.status === 'loading' || !editingModel.apiKey}
-                            className="flex items-center gap-2"
-                          >
-                            {testStatus.status === 'loading' ? 
-                              "测试中..." : 
-                              "测试API连接"
-                            }
-                          </Button>
-                          {testStatus.id === editingModel.id && testStatus.status !== 'idle' && (
-                            <p className={`text-xs mt-1 ${
-                              testStatus.status === 'success' ? 'text-green-600' : 
-                              testStatus.status === 'error' ? 'text-red-600' : ''
-                            }`}>
-                              {testStatus.message}
-                            </p>
-                          )}
-                        </div>
+                        <Label htmlFor="testConnection">连接测试</Label>
+                        <Button 
+                          id="testConnection"
+                          variant="outline" 
+                          onClick={handleTestConnection}
+                          disabled={testStatus.status === 'loading' || !editingModel.apiKey}
+                          className="flex items-center gap-2"
+                        >
+                          {testStatus.status === 'loading' ? 
+                            "测试中..." : 
+                            "测试API连接"
+                          }
+                        </Button>
+                        {testStatus.id === editingModel.id && testStatus.status !== 'idle' && (
+                          <div className={`text-xs mt-1 ${
+                            testStatus.status === 'success' ? 'text-green-600' : 
+                            testStatus.status === 'error' ? 'text-red-600' : ''
+                          }`}>
+                            <p className="font-medium">{testStatus.message}</p>
+                            {testStatus.status === 'success' && editingModel.provider === 'siliconflow' && testStatus.availableModels && (
+                              <p className="mt-1">
+                                已加载 {testStatus.availableModels.length} 个可用模型
+                              </p>
+                            )}
+                            {testStatus.status === 'error' && (
+                              <div className="mt-1 space-y-1">
+                                <p className="text-sm">可能的解决方案:</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                  <li>检查API密钥是否正确</li>
+                                  <li>确认API端点URL格式正确（不需要@前缀）</li>
+                                  <li>API端点正确格式: https://api.siliconflow.cn/v1</li>
+                                  <li>检查网络连接是否正常</li>
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -763,12 +930,12 @@ export default function ModelSettingsManager() {
                             }
                           </Button>
                           {testStatus.id === editingEmbedding.id && testStatus.status !== 'idle' && (
-                            <p className={`text-xs mt-1 ${
+                            <div className={`text-xs mt-1 ${
                               testStatus.status === 'success' ? 'text-green-600' : 
                               testStatus.status === 'error' ? 'text-red-600' : ''
                             }`}>
-                              {testStatus.message}
-                            </p>
+                              <p>{testStatus.message}</p>
+                            </div>
                           )}
                         </div>
                       </div>
