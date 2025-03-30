@@ -5,24 +5,46 @@
 在使用订单图片智能识别功能时，可能会遇到以下错误：
 
 ```
-扫描失败: TypeError: fetch failed
+错误: Error calling SiliconFlow API: 400 Bad Request - {"code":20012,"message":"Model does not exist. Please check it carefully.","data":null}
 ```
 
-这通常是由于模型配置问题导致的，特别是当使用硅基流动的Qwen2-VL-72B-Instruct等多模态模型时。
+## 模型不存在错误解决方案
 
-## 解决方案
+错误代码20012表示所请求的模型不存在。以下是解决方案：
 
-### 1. 通过环境变量配置（推荐）
+### 1. 检查模型命名
 
-最有效的解决方法是直接在服务器端通过环境变量配置模型：
+硅基流动平台要求模型名称必须精确匹配，确保使用以下名称：
 
-1. 在项目根目录找到（或创建）`.env.local`文件
-2. 添加以下配置：
+- 模型名称必须使用全小写: `qwen2-vl-72b-instruct` 
+- 不要使用: `Qwen2-VL-72B-Instruct` (这是错误的格式)
+
+### 2. 检查硅基流动账户权限
+
+该错误也可能由以下原因导致：
+
+1. **API密钥无效或过期** - 请确保您的API密钥正确且有效
+2. **账户未获授权访问该模型** - 联系硅基流动客服确认您的账户是否有权限使用该模型
+3. **模型名称已变更** - 有时模型名称可能会更改，请查看硅基流动最新文档
+
+### 3. 尝试其他可用模型
+
+如果特定模型不可用，可以尝试使用以下替代模型：
+
+```
+# 替代选项
+qwen-vl-plus
+qwen-vl-max
+```
+
+## 解决方案（环境变量配置）
+
+请确保在`.env.local`文件中使用正确的配置：
 
 ```
 # 硅基流动模型配置
 DEFAULT_MODEL_PROVIDER=siliconflow
-DEFAULT_MODEL=Qwen2-VL-72B-Instruct
+DEFAULT_MODEL=qwen2-vl-72b-instruct
 DEFAULT_MODEL_ID=siliconflow-qwen2-vl
 DEFAULT_MODEL_NAME=Qwen2 VL 多模态模型
 SILICONFLOW_API_KEY=sk-your-api-key-here
@@ -31,38 +53,6 @@ SILICONFLOW_API_BASE_URL=https://api.siliconflow.cn/v1
 
 3. 将`sk-your-api-key-here`替换为您的实际API密钥
 4. 保存文件并重启服务器：`npm run dev`
-
-这种方法能够确保服务器端API直接使用正确的模型配置，不依赖于浏览器端的配置。
-
-### 2. 检查模型配置（浏览器端）
-
-如果您无法修改服务器环境变量，可以尝试通过界面配置：
-
-1. 点击导航菜单中的"设置" -> "模型管理"
-2. 在模型管理页面右上角，点击"测试模型配置"按钮
-3. 或者直接访问：`/settings/models/test`
-
-### 3. 硅基流动模型正确配置步骤
-
-如果您使用的是硅基流动的Qwen2-VL-72B-Instruct模型，请确保以下配置正确：
-
-1. **提供商(Provider)**: 设置为 `siliconflow`（非常重要，不要设置为其他值）
-2. **API密钥**: 确保格式正确（通常以sk-开头）
-3. **API端点**: 设置为 `https://api.siliconflow.cn/v1`
-4. **多模态支持**: 必须启用
-5. **模型名称**: 设置为正确的 `Qwen2-VL-72B-Instruct`
-
-### 4. 常见错误原因
-
-- API端点URL格式不正确
-- API密钥格式错误或无效
-- 模型访问受限或需要特定权限
-- 网络连接问题或防火墙设置
-- 服务器端与客户端配置不匹配
-
-### 5. 验证方法
-
-配置完成后，可以在测试页面点击"测试模型配置"按钮，系统将验证您的配置是否正确。
 
 ## 其他多模态模型选项
 

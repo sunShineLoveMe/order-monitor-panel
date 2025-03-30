@@ -263,9 +263,9 @@ export default function TestModelPage() {
             <pre className="bg-slate-100 p-4 rounded-md text-xs overflow-auto">
 {`# 硅基流动模型配置
 DEFAULT_MODEL_PROVIDER=siliconflow
-DEFAULT_MODEL=Qwen2-VL-72B-Instruct
-DEFAULT_MODEL_ID=siliconflow-qwen2-vl
-DEFAULT_MODEL_NAME=Qwen2 VL 多模态模型
+DEFAULT_MODEL=qwen-vl-plus
+DEFAULT_MODEL_ID=siliconflow-qwen-vl
+DEFAULT_MODEL_NAME=Qwen VL 多模态模型
 SILICONFLOW_API_KEY=sk-your-api-key-here
 SILICONFLOW_API_BASE_URL=https://api.siliconflow.cn/v1`}
             </pre>

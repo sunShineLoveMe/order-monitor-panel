@@ -62,6 +62,7 @@ export default function ModelsSettingPage() {
             <li>提供商(Provider)设置为 <code className="bg-blue-100 px-1 rounded">siliconflow</code></li>
             <li>API端点设置为 <code className="bg-blue-100 px-1 rounded">https://api.siliconflow.cn/v1</code></li>
             <li>确保多模态支持已启用</li>
+            <li>模型名称必须使用: <code className="bg-blue-100 px-1 rounded">qwen-vl-plus</code> (推荐, 已验证可用) 或尝试 <code className="bg-blue-100 px-1 rounded">qwen-vl-max</code></li>
             <li>完成配置后请使用右上角的"测试模型配置"按钮验证设置</li>
           </ul>
         </AlertDescription>

@@ -12,10 +12,10 @@ async function getMultimodalModel(): Promise<ModelConfig | null> {
       console.log("使用环境变量中的硅基流动模型配置");
       return {
         id: process.env.DEFAULT_MODEL_ID || "siliconflow-model",
-        name: process.env.DEFAULT_MODEL_NAME || "Qwen2-VL-72B-Instruct",
+        name: process.env.DEFAULT_MODEL_NAME || "Qwen VL 多模态模型",
         provider: "siliconflow",
         apiKey: process.env.SILICONFLOW_API_KEY || "",
-        model: process.env.DEFAULT_MODEL || "Qwen2-VL-72B-Instruct",
+        model: "qwen-vl-plus", // 使用已知可用的模型
         baseUrl: process.env.SILICONFLOW_API_BASE_URL || "https://api.siliconflow.cn/v1",
         isDefault: true,
         isEnabled: true,
@@ -324,11 +324,16 @@ async function analyzeImageWithSiliconFlow(
   try {
     console.log("正在调用硅基流动 API 进行图像分析...");
     console.log(`使用模型: ${modelConfig.model}`);
-    console.log(`API 端点: ${modelConfig.baseUrl}`);
     
-    // 硅基流动API的payload结构 - 修改为符合Qwen2-VL模型的结构
+    // 固定使用正确的API配置
+    const apiKey = modelConfig.apiKey;
+    const apiEndpoint = "https://api.siliconflow.cn/v1/chat/completions";
+    
+    console.log(`API 端点: ${apiEndpoint}`);
+    
+    // 硅基流动API的payload结构
     const payload = {
-      model: modelConfig.model,
+      model: "qwen-vl-plus", // 使用已知可用的模型
       messages: [
         {
           role: "user",
@@ -350,11 +355,6 @@ async function analyzeImageWithSiliconFlow(
       temperature: modelConfig.temperature
     };
 
-    // 确保API端点正确
-    const apiEndpoint = (modelConfig.baseUrl || "https://api.siliconflow.cn/v1").endsWith('/') 
-      ? `${modelConfig.baseUrl || "https://api.siliconflow.cn/v1"}chat/completions`
-      : `${modelConfig.baseUrl || "https://api.siliconflow.cn/v1"}/chat/completions`;
-
     console.log(`完整API端点: ${apiEndpoint}`);
     
     // 硅基流动API调用
@@ -362,18 +362,20 @@ async function analyzeImageWithSiliconFlow(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${modelConfig.apiKey}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify(payload)
     });
 
+    const responseText = await response.text();
+    console.log("API原始响应:", responseText);
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("硅基流动API响应错误:", response.status, errorText);
-      throw new Error(`Error calling SiliconFlow API: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Error calling SiliconFlow API: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const data = await response.json();
+    // 解析响应
+    const data = JSON.parse(responseText);
     console.log("SiliconFlow API response:", data);
     
     // 从响应中提取内容，硅基流动API结构与OpenAI类似
@@ -456,7 +458,21 @@ export async function POST(request: NextRequest) {
         analysisResult = await analyzeImageWithClaude(imageBase64, modelConfig);
       } else if (modelConfig.provider === "siliconflow") {
         console.log("调用硅基流动进行图像分析...");
-        analysisResult = await analyzeImageWithSiliconFlow(imageBase64, modelConfig);
+        try {
+          analysisResult = await analyzeImageWithSiliconFlow(imageBase64, modelConfig);
+        } catch (sfError) {
+          console.error("硅基流动API调用失败，详细错误:", sfError);
+          // 尝试返回更详细的错误信息
+          return NextResponse.json(
+            { 
+              error: `硅基流动API调用失败: ${sfError instanceof Error ? sfError.message : JSON.stringify(sfError)}`,
+              provider: modelConfig.provider,
+              model: modelConfig.model,
+              errorDetails: sfError
+            },
+            { status: 500 }
+          );
+        }
       } else {
         // 如果需要支持其他提供商，可以在这里扩展
         console.error(`不支持的模型提供商: ${modelConfig.provider}`);
@@ -473,7 +489,8 @@ export async function POST(request: NextRequest) {
             ? `API调用失败: ${error.message}` 
             : "API调用失败",
           provider: modelConfig.provider,
-          model: modelConfig.model
+          model: modelConfig.model,
+          errorDetails: error instanceof Error ? error.stack : JSON.stringify(error)
         },
         { status: 500 }
       );
