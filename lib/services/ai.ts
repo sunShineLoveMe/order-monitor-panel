@@ -239,6 +239,33 @@ export const embeddingModels: EmbeddingModelConfig[] = [
   }
 ];
 
+// 添加订单扫描接口
+export interface OrderScanResult {
+  orderNumber?: string;
+  date?: string;
+  supplier?: string;
+  total?: number;
+  currency?: string;
+  items?: {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }[];
+  customer?: {
+    name: string;
+    address: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+  };
+  paymentTerms?: string;
+  notes?: string;
+  confidence: number;
+  rawText?: string;
+  error?: string;
+}
+
 export class AIService {
   private modelConfigs: ModelConfig[] = [];
   private defaultModelConfig: ModelConfig | null = null;
@@ -1021,6 +1048,70 @@ export class AIService {
       console.error('解析模型可用性数据出错:', e);
       return {};
     }
+  }
+
+  /**
+   * 处理订单扫描图片，使用多模态模型识别订单信息
+   * @param imageFile 订单图片文件
+   * @returns 解析后的订单信息
+   */
+  public async scanOrderImage(imageFile: File): Promise<OrderScanResult> {
+    try {
+      // 检查是否有可用的多模态模型
+      const multimodalModel = this.getMultimodalModelConfig();
+      if (!multimodalModel) {
+        throw new Error("未配置多模态模型，请在设置中配置支持多模态的AI模型");
+      }
+
+      // 检查多模态功能是否启用
+      if (!multimodalModel.multimodalConfig?.enabled) {
+        throw new Error("多模态功能未启用，请在模型设置中启用");
+      }
+
+      // 创建FormData，用于上传图片
+      const formData = new FormData();
+      formData.append("image", imageFile);
+
+      // 调用API处理图片
+      const response = await fetch("/api/orders/scan", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "订单扫描失败");
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error("Error scanning order image:", error);
+      return {
+        confidence: 0,
+        error: error instanceof Error ? error.message : "订单扫描处理失败"
+      };
+    }
+  }
+
+  /**
+   * 获取支持多模态的模型配置
+   * @returns 多模态模型配置或null
+   */
+  private getMultimodalModelConfig(): ModelConfig | null {
+    // 优先使用设置为默认且启用了多模态的模型
+    const defaultModel = this.modelConfigs.find(
+      model => model.isDefault && model.isEnabled && model.supportsMultimodal && model.multimodalConfig?.enabled
+    );
+    
+    if (defaultModel) {
+      return defaultModel;
+    }
+    
+    // 如果没有默认的多模态模型，使用任何支持多模态且已启用的模型
+    return this.modelConfigs.find(
+      model => model.isEnabled && model.supportsMultimodal && model.multimodalConfig?.enabled
+    ) || null;
   }
 }
 

@@ -11,6 +11,7 @@ import {
   Settings,
   FileBox,
   Brain,
+  ScanLine,
 } from "lucide-react";
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
@@ -63,6 +64,11 @@ export function SidebarLinks() {
       title: "Orders",
       href: "/orders",
       icon: <PackageSearch className="h-4 w-4" />,
+    },
+    {
+      title: "Order Scan",
+      href: "/orders/scan",
+      icon: <ScanLine className="h-4 w-4" />,
     },
     {
       title: "Inventory",
