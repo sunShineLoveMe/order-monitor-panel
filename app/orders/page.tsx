@@ -9,6 +9,9 @@ import { OrderStats } from '@/components/orders/OrderStats';
 import { OrderChart } from '@/components/orders/OrderChart';
 import { DailyOrderStats } from "@/components/DailyOrderStats";
 import { mockOrders } from '@/lib/data';
+import { Button } from '@/components/ui/button';
+import { ScanLine, Plus } from 'lucide-react';
+import Link from 'next/link';
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -54,6 +57,21 @@ export default function OrdersPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">订单管理</h2>
+        
+        <div className="flex items-center space-x-2">
+          <Button asChild variant="outline">
+            <Link href="/orders/new">
+              <Plus className="mr-2 h-4 w-4" />
+              新建订单
+            </Link>
+          </Button>
+          <Button asChild variant="default" className="bg-blue-600 hover:bg-blue-700">
+            <Link href="/orders/scan">
+              <ScanLine className="mr-2 h-4 w-4" />
+              扫描订单图片
+            </Link>
+          </Button>
+        </div>
       </div>
       
       <div className="grid gap-4">
@@ -69,16 +87,18 @@ export default function OrdersPage() {
             
             <TabPanels>
               <TabPanel>
-                <OrdersTable 
-                  type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} 
-                  orders={orders}
-                  loading={loading}
-                  currentPage={currentPage}
-                  totalOrders={totalOrders}
-                  pageSize={pageSize}
-                  onPageChange={handlePageChange}
-                  className=""
-                />
+                <div className="mt-4">
+                  <OrdersTable 
+                    type={activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound'} 
+                    orders={orders}
+                    loading={loading}
+                    currentPage={currentPage}
+                    totalOrders={totalOrders}
+                    pageSize={pageSize}
+                    onPageChange={handlePageChange}
+                    className=""
+                  />
+                </div>
               </TabPanel>
             </TabPanels>
           </TabGroup>

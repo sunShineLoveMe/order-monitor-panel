@@ -1,18 +1,46 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Upload, Camera, ImagePlus, ClipboardPaste, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Upload, Camera, ImagePlus, ClipboardPaste, CheckCircle, AlertCircle, ArrowLeft, Settings } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import OrderScanResult from "@/components/orders/OrderScanResult";
-import { OrderScanPreview } from "@/components/orders/OrderScanPreview";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+// Mock components for testing, these will be replaced with real components later
+function OrderScanResult({ result }: { result: any }) {
+  return (
+    <div className="border p-4 rounded-md">
+      <h3 className="font-medium mb-2">识别结果 (测试组件)</h3>
+      <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-[300px]">
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    </div>
+  );
+}
+
+function OrderScanPreview({ imageUrl }: { imageUrl: string }) {
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <div className="relative w-full h-[200px]">
+        <Image 
+          src={imageUrl} 
+          alt="订单预览" 
+          fill 
+          style={{ objectFit: "contain" }} 
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function OrderScanPage() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -20,6 +48,7 @@ export default function OrderScanPage() {
   const [activeTab, setActiveTab] = useState<string>("upload");
   const [scanResult, setScanResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creatingOrder, setCreatingOrder] = useState<boolean>(false);
 
   // 处理文件选择
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,10 +161,66 @@ export default function OrderScanPage() {
     }
   };
 
+  // 处理创建订单
+  const handleCreateOrder = useCallback(async () => {
+    if (!scanResult) return;
+    
+    try {
+      setCreatingOrder(true);
+      
+      // 模拟API调用创建订单
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 成功后跳转到订单列表页
+      router.push('/orders');
+    } catch (err) {
+      setError("创建订单失败，请重试");
+    } finally {
+      setCreatingOrder(false);
+    }
+  }, [scanResult, router]);
+
+  // 处理扫描错误，添加诊断信息
+  const handleScanError = (errorMsg: string) => {    
+    // 如果错误信息包含API调用失败，显示模型诊断链接
+    if (
+      errorMsg.includes("API") || 
+      errorMsg.includes("模型") || 
+      errorMsg.includes("连接") ||
+      errorMsg.includes("fetch failed")
+    ) {
+      return (
+        <div className="p-4 border border-amber-200 bg-amber-50 rounded-md mt-4">
+          <p className="font-medium text-amber-800 mb-2">检测到可能是模型配置问题</p>
+          <p className="text-sm text-amber-700 mb-3">
+            您的错误可能与AI模型配置有关。请检查您的模型设置是否正确。
+          </p>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/settings/models/test">
+              <span className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                <span>诊断模型配置</span>
+              </span>
+            </Link>
+          </Button>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">订单扫描识别</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/orders">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">订单扫描识别</h1>
+        </div>
       </div>
       <p className="text-muted-foreground">
         通过上传订单图片或发票，自动提取并识别订单信息，快速创建订单记录
@@ -220,9 +305,15 @@ export default function OrderScanPage() {
             )}
 
             {error && (
-              <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md flex items-center">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                {error}
+              <div className="flex flex-col items-start">
+                <div className="p-4 border border-red-200 bg-red-50 text-red-700 rounded-md flex items-start gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">扫描失败</p>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                </div>
+                {handleScanError(error)}
               </div>
             )}
           </CardContent>
@@ -270,6 +361,27 @@ export default function OrderScanPage() {
               </div>
             )}
           </CardContent>
+          {scanResult && (
+            <CardFooter className="flex justify-end space-x-2 pt-6 border-t">
+              <Button variant="outline" asChild>
+                <Link href="/orders">取消</Link>
+              </Button>
+              <Button 
+                onClick={handleCreateOrder} 
+                disabled={creatingOrder}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {creatingOrder ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate.spin" />
+                    创建中...
+                  </>
+                ) : (
+                  '创建订单'
+                )}
+              </Button>
+            </CardFooter>
+          )}
         </Card>
       </div>
     </div>

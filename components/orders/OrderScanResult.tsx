@@ -21,7 +21,8 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Check, Plus, Edit2, Save, Trash2 } from 'lucide-react';
+import { Check, Plus, Edit2, Save, Trash2, FileText, Package, User, CreditCard, Calculator, Calendar, Clock } from 'lucide-react';
+import { format } from "date-fns";
 
 interface OrderItem {
   description: string;
@@ -50,6 +51,7 @@ interface ScanResult {
   notes?: string;
   confidence: number;
   rawText?: string;
+  error?: string;
 }
 
 interface OrderScanResultProps {
@@ -154,43 +156,44 @@ const OrderScanResult: React.FC<OrderScanResultProps> = ({ result }) => {
     return editedResult.items.reduce((sum, item) => sum + item.amount, 0);
   };
 
+  const getConfidenceLevel = () => {
+    const confidence = editedResult.confidence || 0;
+    if (confidence >= 80) return { label: '高', color: 'bg-green-500' };
+    if (confidence >= 50) return { label: '中', color: 'bg-yellow-500' };
+    return { label: '低', color: 'bg-red-500' };
+  };
+
+  const confidenceInfo = getConfidenceLevel();
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <Badge
-            variant="outline"
-            className={`px-2 py-1 ${
-              editedResult.confidence >= 90
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : editedResult.confidence >= 70
-                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                : 'bg-red-50 text-red-700 border-red-200'
-            }`}
-          >
-            识别可信度: {editedResult.confidence}%
-          </Badge>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`w-3 h-3 rounded-full ${confidenceInfo.color} mr-2`}></div>
+          <span className="text-sm">识别置信度: {confidenceInfo.label} ({editedResult.confidence || 0}%)</span>
         </div>
-        <div>
-          {editing ? (
-            <Button variant="outline" size="sm" onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
-              保存
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={handleEditToggle}>
-              <Edit2 className="h-4 w-4 mr-2" />
-              编辑
-            </Button>
-          )}
-        </div>
+        {editedResult.rawText && (
+          <Button variant="outline" size="sm" className="text-xs">
+            <FileText className="h-3 w-3 mr-1" />
+            查看原始文本
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="orderInfo">订单信息</TabsTrigger>
-          <TabsTrigger value="items">商品明细</TabsTrigger>
-          <TabsTrigger value="rawText">原始文本</TabsTrigger>
+          <TabsTrigger value="orderInfo">
+            <FileText className="h-4 w-4 mr-2" />
+            订单信息
+          </TabsTrigger>
+          <TabsTrigger value="items">
+            <Package className="h-4 w-4 mr-2" />
+            商品明细
+          </TabsTrigger>
+          <TabsTrigger value="customer">
+            <User className="h-4 w-4 mr-2" />
+            客户信息
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="orderInfo" className="space-y-4 pt-4">
@@ -206,13 +209,19 @@ const OrderScanResult: React.FC<OrderScanResultProps> = ({ result }) => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">订单日期</Label>
-              <Input
-                id="date"
-                type="date"
-                value={editedResult.date || ''}
-                onChange={(e) => handleChange('date', e.target.value)}
-                disabled={!editing}
-              />
+              <div className="flex">
+                <Input
+                  id="date"
+                  type="date"
+                  value={editedResult.date || format(new Date(), 'yyyy-MM-dd')}
+                  onChange={(e) => handleChange('date', e.target.value)}
+                  disabled={!editing}
+                  className="flex-1"
+                />
+                <Button variant="outline" size="icon" className="ml-2">
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="supplier">供应商</Label>
@@ -457,13 +466,56 @@ const OrderScanResult: React.FC<OrderScanResultProps> = ({ result }) => {
           </Table>
         </TabsContent>
 
-        <TabsContent value="rawText" className="pt-4">
-          <Textarea
-            value={editedResult.rawText || ''}
-            readOnly
-            rows={10}
-            className="font-mono text-xs"
-          />
+        <TabsContent value="customer" className="pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="customerName">客户名称</Label>
+            <Input
+              id="customerName"
+              value={editedResult.customer?.name || ''}
+              onChange={(e) => handleCustomerChange('name', e.target.value)}
+              disabled={!editing}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customerAddress">客户地址</Label>
+            <Textarea
+              id="customerAddress"
+              value={editedResult.customer?.address || ''}
+              onChange={(e) => handleCustomerChange('address', e.target.value)}
+              disabled={!editing}
+              rows={2}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="contactPerson">联系人</Label>
+              <Input
+                id="contactPerson"
+                value={editedResult.customer?.contactPerson || ''}
+                onChange={(e) => handleCustomerChange('contactPerson', e.target.value)}
+                disabled={!editing}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">电话</Label>
+              <Input
+                id="phone"
+                value={editedResult.customer?.phone || ''}
+                onChange={(e) => handleCustomerChange('phone', e.target.value)}
+                disabled={!editing}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">电子邮箱</Label>
+            <Input
+              id="email"
+              type="email"
+              value={editedResult.customer?.email || ''}
+              onChange={(e) => handleCustomerChange('email', e.target.value)}
+              disabled={!editing}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
