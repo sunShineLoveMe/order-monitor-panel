@@ -15,7 +15,7 @@ async function getMultimodalModel(): Promise<ModelConfig | null> {
         name: process.env.DEFAULT_MODEL_NAME || "Qwen VL 多模态模型",
         provider: "siliconflow",
         apiKey: process.env.SILICONFLOW_API_KEY || "",
-        model: "qwen-vl-plus", // 使用已知可用的模型
+        model: process.env.DEFAULT_MODEL || "qwen2-vl-72b-instruct", // 使用环境变量中的模型名称
         baseUrl: process.env.SILICONFLOW_API_BASE_URL || "https://api.siliconflow.cn/v1",
         isDefault: true,
         isEnabled: true,
@@ -333,7 +333,7 @@ async function analyzeImageWithSiliconFlow(
     
     // 硅基流动API的payload结构
     const payload = {
-      model: "qwen-vl-plus", // 使用已知可用的模型
+      model: modelConfig.model, // 使用配置中的模型名称
       messages: [
         {
           role: "user",
@@ -356,6 +356,7 @@ async function analyzeImageWithSiliconFlow(
     };
 
     console.log(`完整API端点: ${apiEndpoint}`);
+    console.log(`使用模型名称: ${modelConfig.model}`); // 添加模型名称日志
     
     // 硅基流动API调用
     const response = await fetch(apiEndpoint, {
