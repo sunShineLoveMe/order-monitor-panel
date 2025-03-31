@@ -10,12 +10,27 @@ async function getMultimodalModel(): Promise<ModelConfig | null> {
       process.env.SILICONFLOW_API_KEY
     ) {
       console.log("使用环境变量中的硅基流动模型配置");
+      
+      // 获取并处理模型名称
+      let modelName = process.env.DEFAULT_MODEL || "Qwen/Qwen2-VL-72B-Instruct";
+      
+      // 如果模型名称不包含/，则尝试添加提供商前缀
+      if (!modelName.includes('/')) {
+        if (modelName.toLowerCase().includes('qwen')) {
+          modelName = `Qwen/${modelName}`;
+        } else if (modelName.toLowerCase().includes('llama')) {
+          modelName = `Meta/${modelName}`;
+        } else if (modelName.toLowerCase().includes('mistral') || modelName.toLowerCase().includes('mixtral')) {
+          modelName = `Mistral/${modelName}`;
+        }
+      }
+      
       return {
         id: process.env.DEFAULT_MODEL_ID || "siliconflow-model",
         name: process.env.DEFAULT_MODEL_NAME || "Qwen VL 多模态模型",
         provider: "siliconflow",
         apiKey: process.env.SILICONFLOW_API_KEY || "",
-        model: process.env.DEFAULT_MODEL || "qwen2-vl-72b-instruct", // 使用环境变量中的模型名称
+        model: modelName, // 使用处理后的模型名称
         baseUrl: process.env.SILICONFLOW_API_BASE_URL || "https://api.siliconflow.cn/v1",
         isDefault: true,
         isEnabled: true,
@@ -33,12 +48,11 @@ async function getMultimodalModel(): Promise<ModelConfig | null> {
     // 如果没有配置硅基流动模型，则尝试使用OpenAI模型
     console.log("使用OpenAI默认模型配置");
     return {
-      id: process.env.DEFAULT_MODEL_ID || "default-model",
-      name: process.env.DEFAULT_MODEL_NAME || "GPT-4 Vision",
-      provider: process.env.DEFAULT_MODEL_PROVIDER || "openai",
+      id: "default-openai",
+      name: "GPT-4 Vision",
+      provider: "openai",
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: process.env.DEFAULT_MODEL || "gpt-4-vision-preview",
-      baseUrl: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
+      model: "gpt-4-vision-preview",
       isDefault: true,
       isEnabled: true,
       supportsMultimodal: true,
@@ -51,7 +65,7 @@ async function getMultimodalModel(): Promise<ModelConfig | null> {
       }
     };
   } catch (error) {
-    console.error("Failed to get multimodal model:", error);
+    console.error("获取多模态模型配置失败:", error);
     return null;
   }
 }
@@ -327,13 +341,32 @@ async function analyzeImageWithSiliconFlow(
     
     // 固定使用正确的API配置
     const apiKey = modelConfig.apiKey;
-    const apiEndpoint = "https://api.siliconflow.cn/v1/chat/completions";
+    const apiEndpoint = `${modelConfig.baseUrl || "https://api.siliconflow.cn/v1"}/chat/completions`;
     
     console.log(`API 端点: ${apiEndpoint}`);
     
+    // 解析和格式化模型名称
+    // 硅基流动模型名称格式：提供商/模型名称，例如：Qwen/Qwen2.5-VL-72B-Instruct
+    let modelName = modelConfig.model;
+    
+    // 如果模型名称不包含/，则尝试添加提供商前缀
+    if (!modelName.includes('/')) {
+      // 对于qwen模型添加前缀
+      if (modelName.toLowerCase().includes('qwen')) {
+        modelName = `Qwen/${modelName}`;
+      } else if (modelName.toLowerCase().includes('llama')) {
+        modelName = `Meta/${modelName}`;
+      } else if (modelName.toLowerCase().includes('mistral') || modelName.toLowerCase().includes('mixtral')) {
+        modelName = `Mistral/${modelName}`;
+      }
+      // 其他模型可以根据需要添加相应的逻辑
+    }
+    
+    console.log(`格式化后的模型名称: ${modelName}`);
+    
     // 硅基流动API的payload结构
     const payload = {
-      model: modelConfig.model, // 使用配置中的模型名称
+      model: modelName,
       messages: [
         {
           role: "user",
@@ -352,11 +385,14 @@ async function analyzeImageWithSiliconFlow(
         }
       ],
       max_tokens: 4000,
-      temperature: modelConfig.temperature
+      temperature: modelConfig.temperature || 0.7,
+      top_p: 0.7,            // 添加top_p参数
+      top_k: 50,             // 添加top_k参数
+      frequency_penalty: 0   // 添加frequency_penalty参数
     };
 
     console.log(`完整API端点: ${apiEndpoint}`);
-    console.log(`使用模型名称: ${modelConfig.model}`); // 添加模型名称日志
+    console.log(`使用模型名称: ${modelName}`);
     
     // 硅基流动API调用
     const response = await fetch(apiEndpoint, {
@@ -375,25 +411,34 @@ async function analyzeImageWithSiliconFlow(
       throw new Error(`Error calling SiliconFlow API: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    // 解析响应
-    const data = JSON.parse(responseText);
-    console.log("SiliconFlow API response:", data);
-    
-    // 从响应中提取内容，硅基流动API结构与OpenAI类似
-    const content = data.choices[0].message.content;
-
-    // 尝试解析返回的JSON
     try {
-      // 提取JSON部分，防止有额外的说明文本
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : content;
-      return JSON.parse(jsonStr);
-    } catch (error) {
-      console.error("Failed to parse SiliconFlow API response as JSON:", error);
+      // 解析响应
+      const data = JSON.parse(responseText);
+      console.log("SiliconFlow API response:", data);
+      
+      // 从响应中提取内容，硅基流动API结构与OpenAI类似
+      const content = data.choices[0].message.content;
+
+      // 尝试解析返回的JSON
+      try {
+        // 提取JSON部分，防止有额外的说明文本
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : content;
+        return JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error("Failed to parse SiliconFlow API response as JSON:", parseError);
+        return {
+          error: "无法解析API响应",
+          rawContent: content,
+          confidence: 30
+        };
+      }
+    } catch (jsonError) {
+      console.error("Failed to parse SiliconFlow API response:", jsonError);
       return {
         error: "无法解析API响应",
-        rawContent: content,
-        confidence: 30
+        rawContent: responseText,
+        confidence: 20
       };
     }
   } catch (error) {

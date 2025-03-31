@@ -273,13 +273,74 @@ export class AIService {
   private defaultEmbeddingConfig: EmbeddingModelConfig | null = null;
 
   constructor() {
+    // 测试环境变量配置
+    this.testEnvVars();
+    
     // 初始化默认模型配置
-    this.modelConfigs = [
-      {
+    const defaultConfigs = [];
+    
+    // 尝试从环境变量加载配置
+    const envConfigs = this.loadEnvironmentConfig();
+    if (envConfigs.length > 0) {
+      console.log(`从环境变量加载了 ${envConfigs.length} 个模型配置`);
+      defaultConfigs.push(...envConfigs);
+    } else {
+      // 客户端配置
+      // 检查环境变量中是否有OpenAI配置
+      const openAiApiKey = this.getEnvVar('OPENAI_API_KEY');
+      if (openAiApiKey) {
+        defaultConfigs.push({
+          id: "default-openai",
+          name: "GPT-4",
+          provider: "openai",
+          apiKey: openAiApiKey,
+          model: "gpt-4-turbo",
+          isDefault: this.getEnvVar('DEFAULT_MODEL_PROVIDER') !== 'siliconflow',
+          isEnabled: true,
+          supportsMultimodal: true,
+          contextLength: 128000,
+          temperature: 0.7,
+          proxyUrl: "",
+          multimodalConfig: {
+            maxImageSize: 4096,
+            supportedFormats: ["jpeg", "png", "webp"],
+            enabled: true
+          }
+        });
+      }
+      
+      // 检查环境变量中是否有硅基流动配置
+      const siliconFlowApiKey = this.getEnvVar('SILICONFLOW_API_KEY');
+      if (siliconFlowApiKey) {
+        console.log('客户端: 发现硅基流动API环境变量配置');
+        defaultConfigs.push({
+          id: this.getEnvVar('DEFAULT_MODEL_ID', "siliconflow-default"),
+          name: this.getEnvVar('DEFAULT_MODEL_NAME', "硅基流动默认模型"),
+          provider: "siliconflow",
+          apiKey: siliconFlowApiKey,
+          baseUrl: this.getEnvVar('SILICONFLOW_API_BASE_URL', "https://api.siliconflow.cn/v1"),
+          model: this.getEnvVar('DEFAULT_MODEL', "qwen-vl-plus"),
+          isDefault: this.getEnvVar('DEFAULT_MODEL_PROVIDER') === 'siliconflow',
+          isEnabled: true,
+          supportsMultimodal: true,
+          contextLength: 32000,
+          temperature: 0.7,
+          multimodalConfig: {
+            maxImageSize: 4096,
+            supportedFormats: ["jpeg", "png", "webp"],
+            enabled: true
+          }
+        });
+      }
+    }
+    
+    // 如果没有配置，使用空的OpenAI配置作为默认
+    if (defaultConfigs.length === 0) {
+      defaultConfigs.push({
         id: "default-openai",
         name: "GPT-4",
         provider: "openai",
-        apiKey: process.env.OPENAI_API_KEY || "",
+        apiKey: "",
         model: "gpt-4-turbo",
         isDefault: true,
         isEnabled: true,
@@ -292,10 +353,11 @@ export class AIService {
           supportedFormats: ["jpeg", "png", "webp"],
           enabled: true
         }
-      }
-    ];
+      });
+    }
     
-    this.defaultModelConfig = this.modelConfigs[0];
+    this.modelConfigs = defaultConfigs;
+    this.defaultModelConfig = this.modelConfigs.find(config => config.isDefault) || this.modelConfigs[0];
     this.loadModelConfigs();
 
     // 初始化Embedding模型配置
@@ -469,16 +531,13 @@ export class AIService {
         baseUrl = baseUrl.substring(1);
       }
       
-      // 如果用户输入了完整的models端点，则直接使用
-      let url = baseUrl;
-      if (!url.endsWith('/models')) {
-        // 确保URL结尾没有多余的斜杠
-        if (url.endsWith('/')) {
-          url = url.slice(0, -1);
-        }
-        // 添加models路径和type参数
-        url = `${url}/models?type=text`;
+      // 确保URL结尾没有斜杠
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
       }
+      
+      // 构建API URL
+      const url = `${baseUrl}/models`;
       
       console.log('请求硅基流动API:', url);
       
@@ -491,12 +550,26 @@ export class AIService {
           }
         });
         
+        // 检查HTTP状态码
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`请求失败: ${response.status} - ${errorText}`);
+          console.error('硅基流动API请求失败:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorText
+          });
+          
+          if (response.status === 401) {
+            return { success: false, message: 'API密钥无效或未获授权' };
+          } else if (response.status === 404) {
+            return { success: false, message: 'API端点URL无效，请检查配置' };
+          } else {
+            return { success: false, message: `请求失败: ${response.status} - ${errorText}` };
+          }
         }
         
         const data = await response.json();
+        console.log('硅基流动API响应:', data);
         
         // 提取模型ID列表
         if (data && data.data && Array.isArray(data.data)) {
@@ -529,12 +602,19 @@ export class AIService {
         };
       } catch (error) {
         console.error('获取硅基流动模型列表失败:', error);
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          return {
+            success: false,
+            message: `网络错误: 无法连接到硅基流动API服务器，请检查网络连接或API端点配置`
+          };
+        }
         return {
           success: false,
           message: `获取模型列表失败: ${error instanceof Error ? error.message : '未知错误'}`
         };
       }
     } catch (error) {
+      console.error('硅基流动连接测试出错:', error);
       return { 
         success: false, 
         message: `硅基流动API连接失败: ${error instanceof Error ? error.message : '未知错误'}`
@@ -1112,6 +1192,133 @@ export class AIService {
     return this.modelConfigs.find(
       model => model.isEnabled && model.supportsMultimodal && model.multimodalConfig?.enabled
     ) || null;
+  }
+
+  // 从环境变量加载模型配置（服务器端）
+  private loadEnvironmentConfig(): ModelConfig[] {
+    // 检查是否在服务器端
+    if (typeof window !== 'undefined') return [];
+    
+    const envConfigs: ModelConfig[] = [];
+    
+    try {
+      // 添加硅基流动配置（如果存在）
+      const siliconFlowApiKey = this.getEnvVar('SILICONFLOW_API_KEY');
+      if (siliconFlowApiKey) {
+        console.log('服务端: 加载硅基流动API环境变量配置');
+        
+        // 获取模型名称并确保其格式正确
+        let modelName = this.getEnvVar('DEFAULT_MODEL', "Qwen/Qwen2-VL-72B-Instruct");
+        
+        // 如果模型名称不包含/，则尝试添加提供商前缀
+        if (!modelName.includes('/')) {
+          // 对于qwen模型添加前缀
+          if (modelName.toLowerCase().includes('qwen')) {
+            modelName = `Qwen/${modelName}`;
+          } else if (modelName.toLowerCase().includes('llama')) {
+            modelName = `Meta/${modelName}`;
+          } else if (modelName.toLowerCase().includes('mistral') || modelName.toLowerCase().includes('mixtral')) {
+            modelName = `Mistral/${modelName}`;
+          }
+        }
+        
+        envConfigs.push({
+          id: this.getEnvVar('DEFAULT_MODEL_ID', "siliconflow-env"),
+          name: this.getEnvVar('DEFAULT_MODEL_NAME', "硅基流动环境变量模型"),
+          provider: "siliconflow",
+          apiKey: siliconFlowApiKey,
+          baseUrl: this.getEnvVar('SILICONFLOW_API_BASE_URL', "https://api.siliconflow.cn/v1"),
+          model: modelName,
+          isDefault: this.getEnvVar('DEFAULT_MODEL_PROVIDER') === 'siliconflow',
+          isEnabled: true,
+          supportsMultimodal: true,
+          contextLength: 32000,
+          temperature: 0.7,
+          multimodalConfig: {
+            maxImageSize: 4096,
+            supportedFormats: ["jpeg", "png", "webp"],
+            enabled: true
+          }
+        });
+      }
+      
+      // 添加OpenAI配置（如果存在）
+      const openAiApiKey = this.getEnvVar('OPENAI_API_KEY');
+      if (openAiApiKey) {
+        console.log('服务端: 加载OpenAI API环境变量配置');
+        envConfigs.push({
+          id: "openai-env",
+          name: "OpenAI环境变量模型",
+          provider: "openai",
+          apiKey: openAiApiKey,
+          model: this.getEnvVar('OPENAI_MODEL', "gpt-4-turbo"), 
+          isDefault: this.getEnvVar('DEFAULT_MODEL_PROVIDER') !== 'siliconflow',
+          isEnabled: true,
+          supportsMultimodal: true,
+          contextLength: 128000,
+          temperature: 0.7,
+          multimodalConfig: {
+            maxImageSize: 4096,
+            supportedFormats: ["jpeg", "png", "webp"],
+            enabled: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error('加载环境变量配置失败:', error);
+    }
+    
+    return envConfigs;
+  }
+
+  // 安全获取环境变量（在服务器和客户端都可用）
+  private getEnvVar(name: string, defaultValue: string = ''): string {
+    // 浏览器端，尝试从window._env获取（如果存在）
+    if (typeof window !== 'undefined') {
+      try {
+        // @ts-ignore - 自定义window属性
+        if (window._env && window._env[name]) {
+          // @ts-ignore - 自定义window属性
+          return window._env[name];
+        }
+      } catch (e) {
+        console.warn('获取前端环境变量失败:', e);
+      }
+      
+      // 尝试从Next.js公共环境变量获取
+      const publicKey = `NEXT_PUBLIC_${name}`;
+      // @ts-ignore - 访问process.env
+      if (process.env && process.env[publicKey]) {
+        // @ts-ignore - 访问process.env
+        return process.env[publicKey];
+      }
+    }
+    
+    // 服务器端
+    // @ts-ignore - 访问process.env
+    if (typeof process !== 'undefined' && process.env && process.env[name]) {
+      // @ts-ignore - 访问process.env
+      return process.env[name];
+    }
+    
+    return defaultValue;
+  }
+  
+  // 测试环境变量是否正确配置
+  private testEnvVars(): void {
+    if (typeof window === 'undefined') {
+      // 仅在服务器端运行此测试
+      const vars = {
+        DEFAULT_MODEL_PROVIDER: this.getEnvVar('DEFAULT_MODEL_PROVIDER', '未设置'),
+        DEFAULT_MODEL: this.getEnvVar('DEFAULT_MODEL', '未设置'),
+        DEFAULT_MODEL_ID: this.getEnvVar('DEFAULT_MODEL_ID', '未设置'),
+        DEFAULT_MODEL_NAME: this.getEnvVar('DEFAULT_MODEL_NAME', '未设置'),
+        SILICONFLOW_API_KEY: this.getEnvVar('SILICONFLOW_API_KEY', '').substring(0, 5) + '...',
+        SILICONFLOW_API_BASE_URL: this.getEnvVar('SILICONFLOW_API_BASE_URL', '未设置'),
+      };
+      
+      console.log('环境变量检测结果:', vars);
+    }
   }
 }
 
