@@ -154,6 +154,28 @@ export class DatabaseService {
     }
   }
 
+  static async getSalesPredictions(filters: { timeframe: 'short' | 'medium' | 'long', productId: string | null }): Promise<any[]> {
+    // 模拟预测数据生成
+    const months = filters.timeframe === 'short' ? 3 : filters.timeframe === 'medium' ? 6 : 12;
+    const data = [];
+    const now = new Date();
+    
+    for (let i = 0; i < months; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const baseRevenue = 150000 + Math.random() * 50000;
+        data.push({
+            date: dateStr,
+            revenue: baseRevenue * (1 + i * 0.05),
+            quantity: Math.floor(baseRevenue / 1000),
+            growthRate: 5 + Math.random() * 5,
+            upperBound: baseRevenue * 1.2,
+            lowerBound: baseRevenue * 0.8
+        });
+    }
+    return data;
+  }
+
   private static async calculateMonthlyStats(): Promise<MonthlyStats[]> {
     try {
       const { data, error } = await supabase

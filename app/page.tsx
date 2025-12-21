@@ -33,6 +33,7 @@ import { InventoryHeatmap } from "@/components/InventoryHeatmap";
 import { SalesTrendChart } from "@/components/SalesTrendChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AISalesProfitForecast } from "@/components/AISalesProfitForecast";
+import { ActivityHeatmap } from "@/components/ActivityHeatmap";
 
 export default function Home() {
   const [stats, setStats] = useState<any>(null);
@@ -271,6 +272,7 @@ export default function Home() {
         </TabsContent>
         
         <TabsContent value="inventory" className="space-y-4">
+          <ActivityHeatmap />
           <InventoryHeatmap />
           
           <div className="grid gap-4 md:grid-cols-2">

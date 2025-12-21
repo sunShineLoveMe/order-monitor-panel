@@ -152,10 +152,10 @@ export function AISalesProfitForecast() {
       
       // 生成最有信心的预测
       const confidences = [
-        "销售额预计在2024年12月达到峰值",
-        "利润率将在下两个季度持续稳定增长",
-        "销售与利润比率将维持在历史平均水平",
-        "季节性因素将影响Q4销售额，但利润率预计保持稳定"
+        "销售额预计在 2025 年 12 月达到峰值",
+        "利润率将在 2025 下两个季度持续稳定增长",
+        "销售与利润比率将维持在 2025 历史平均水平",
+        "季节性因素将影响 2025 Q4 销售额，但利润率预计保持稳定"
       ];
       setConfidentPrediction(confidences[Math.floor(Math.random() * confidences.length)]);
     }, 800);
@@ -233,12 +233,12 @@ export function AISalesProfitForecast() {
                 >
                   <defs>
                     <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#EC4899" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
@@ -266,21 +266,21 @@ export function AISalesProfitForecast() {
                       <Line
                         type="monotone"
                         dataKey="sales"
-                        stroke="#6366F1"
+                        stroke="#0ea5e9"
                         strokeWidth={2}
                         dot={(props: any) => {
                           const { cx, cy, payload } = props;
                           if (payload.salesPredicted) {
                             return (
                               <svg x={cx - 4} y={cy - 4} width={8} height={8}>
-                                <circle cx={4} cy={4} r={3} fill="#6366F1" />
-                                <circle cx={4} cy={4} r={5} stroke="#6366F1" strokeWidth={0.5} fill="none" />
+                                <circle cx={4} cy={4} r={3} fill="#0ea5e9" />
+                                <circle cx={4} cy={4} r={5} stroke="#0ea5e9" strokeWidth={0.5} fill="none" />
                               </svg>
                             );
                           }
-                          return <circle cx={cx} cy={cy} r={3} fill="#6366F1" />;
+                          return <circle cx={cx} cy={cy} r={3} fill="#0ea5e9" />;
                         }}
-                        activeDot={{ r: 5, fill: '#6366F1' }}
+                        activeDot={{ r: 5, fill: '#0ea5e9' }}
                         isAnimationActive={!isLoading}
                         name="sales"
                       />
@@ -299,21 +299,21 @@ export function AISalesProfitForecast() {
                       <Line
                         type="monotone"
                         dataKey="profit"
-                        stroke="#EC4899"
+                        stroke="#ec4899"
                         strokeWidth={2}
                         dot={(props: any) => {
                           const { cx, cy, payload } = props;
                           if (payload.profitPredicted) {
                             return (
                               <svg x={cx - 4} y={cy - 4} width={8} height={8}>
-                                <circle cx={4} cy={4} r={3} fill="#EC4899" />
-                                <circle cx={4} cy={4} r={5} stroke="#EC4899" strokeWidth={0.5} fill="none" />
+                                <circle cx={4} cy={4} r={3} fill="#ec4899" />
+                                <circle cx={4} cy={4} r={5} stroke="#ec4899" strokeWidth={0.5} fill="none" />
                               </svg>
                             );
                           }
-                          return <circle cx={cx} cy={cy} r={3} fill="#EC4899" />;
+                          return <circle cx={cx} cy={cy} r={3} fill="#ec4899" />;
                         }}
-                        activeDot={{ r: 5, fill: '#EC4899' }}
+                        activeDot={{ r: 5, fill: '#ec4899' }}
                         isAnimationActive={!isLoading}
                         name="profit"
                       />

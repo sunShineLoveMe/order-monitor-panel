@@ -62,9 +62,9 @@ export function InventoryHeatmap({ className }: InventoryHeatmapProps) {
 
   const getStatusColor = (item: InventoryItem) => {
     const ratio = item.quantity / item.threshold;
-    if (ratio <= 0.5) return "bg-red-500";
-    if (ratio <= 0.8) return "bg-yellow-500";
-    return "bg-green-500";
+    if (ratio <= 0.5) return "bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.4)]"; // Anomaly
+    if (ratio <= 0.8) return "bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.4)]"; // Warning
+    return "bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.4)]"; // Optimal
   };
 
   const getHeatmapData = (): HeatmapData[] => {

@@ -99,7 +99,7 @@ export function Overview() {
           variant={visibleFields.inbound ? "default" : "outline"} 
           size="sm" 
           onClick={() => toggleField("inbound")}
-          className="text-xs"
+          className={`text-xs h-7 px-3 transition-all ${visibleFields.inbound ? 'shadow-[0_0_10px_rgba(14,165,233,0.3)] border-blue-500/50' : ''}`}
         >
           入库
         </Button>
@@ -107,7 +107,7 @@ export function Overview() {
           variant={visibleFields.outbound ? "default" : "outline"} 
           size="sm" 
           onClick={() => toggleField("outbound")}
-          className="text-xs"
+          className={`text-xs h-7 px-3 transition-all ${visibleFields.outbound ? 'shadow-[0_0_10px_rgba(99,102,241,0.3)] border-indigo-500/50' : ''}`}
         >
           出库
         </Button>
@@ -115,7 +115,7 @@ export function Overview() {
           variant={visibleFields.inventory ? "default" : "outline"} 
           size="sm" 
           onClick={() => toggleField("inventory")}
-          className="text-xs"
+          className={`text-xs h-7 px-3 transition-all ${visibleFields.inventory ? 'shadow-[0_0_10px_rgba(16,185,129,0.3)] border-emerald-500/50' : ''}`}
         >
           库存
         </Button>
@@ -123,17 +123,17 @@ export function Overview() {
           variant={visibleFields.sales ? "default" : "outline"} 
           size="sm" 
           onClick={() => toggleField("sales")}
-          className="text-xs"
+          className={`text-xs h-7 px-3 transition-all ${visibleFields.sales ? 'shadow-[0_0_10px_rgba(245,158,11,0.3)] border-amber-500/50' : ''}`}
         >
-          销售额 (÷10)
+          销售额 (×10)
         </Button>
         <Button 
           variant={visibleFields.profit ? "default" : "outline"} 
           size="sm" 
           onClick={() => toggleField("profit")}
-          className="text-xs"
+          className={`text-xs h-7 px-3 transition-all ${visibleFields.profit ? 'shadow-[0_0_10px_rgba(236,72,153,0.3)] border-pink-500/50' : ''}`}
         >
-          利润 (÷3)
+          利润 (×3)
         </Button>
       </div>
       <ResponsiveContainer width="100%" height={350}>
@@ -172,7 +172,7 @@ export function Overview() {
           {visibleFields.inbound && (
             <Bar
               dataKey="inbound"
-              fill="hsl(var(--primary))"
+              fill="url(#colorInbound)"
               radius={[4, 4, 0, 0]}
               name="入库"
             />
@@ -180,7 +180,7 @@ export function Overview() {
           {visibleFields.outbound && (
             <Bar
               dataKey="outbound"
-              fill="hsl(var(--secondary))"
+              fill="url(#colorOutbound)"
               radius={[4, 4, 0, 0]}
               name="出库"
             />
@@ -188,7 +188,7 @@ export function Overview() {
           {visibleFields.inventory && (
             <Bar
               dataKey="inventory"
-              fill="#4CAF50" // 绿色代表库存
+              fill="url(#colorInventory)"
               radius={[4, 4, 0, 0]}
               name="库存"
             />
@@ -196,7 +196,7 @@ export function Overview() {
           {visibleFields.sales && (
             <Bar
               dataKey="sales"
-              fill="#FF9800" // 橙色代表销售额
+              fill="url(#colorSales)"
               radius={[4, 4, 0, 0]}
               name="销售额"
             />
@@ -204,13 +204,36 @@ export function Overview() {
           {visibleFields.profit && (
             <Bar
               dataKey="profit"
-              fill="#E91E63" // 粉红色代表利润
+              fill="url(#colorProfit)"
               radius={[4, 4, 0, 0]}
               name="利润"
             />
           )}
+          <defs>
+            <linearGradient id="colorInbound" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.2}/>
+            </linearGradient>
+            <linearGradient id="colorOutbound" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#6366f1" stopOpacity={0.2}/>
+            </linearGradient>
+            <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0.2}/>
+            </linearGradient>
+            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.2}/>
+            </linearGradient>
+            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#ec4899" stopOpacity={0.2}/>
+            </linearGradient>
+          </defs>
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
-} 
+}
+ 

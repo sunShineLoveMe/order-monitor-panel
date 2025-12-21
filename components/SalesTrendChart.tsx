@@ -4,12 +4,11 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
-  BarChart3Icon, 
-  RefreshCwIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
-  CalendarIcon,
-  ArrowRightIcon
+  BarChart3, 
+  RefreshCw,
+  Search,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DatabaseService } from "@/lib/services/database";
@@ -92,9 +91,9 @@ export function SalesTrendChart({ className }: SalesTrendChartProps) {
 
   // 获取趋势图标
   const getTrendIcon = (direction: "up" | "down" | "stable") => {
-    if (direction === "up") return <TrendingUpIcon className="h-4 w-4 text-green-500" />;
-    if (direction === "down") return <TrendingDownIcon className="h-4 w-4 text-red-500" />;
-    return <RefreshCwIcon className="h-4 w-4 text-yellow-500" />;
+    if (direction === "up") return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (direction === "down") return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return <RefreshCw className="h-4 w-4 text-yellow-500" />;
   };
 
   // 格式化收入数据（转为万元）
@@ -181,12 +180,12 @@ export function SalesTrendChart({ className }: SalesTrendChartProps) {
             >
               <defs>
                 <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="bounds" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#82ca9d" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="date" />
@@ -200,21 +199,21 @@ export function SalesTrendChart({ className }: SalesTrendChartProps) {
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#8884d8"
+                stroke="#0ea5e9"
                 fillOpacity={1}
                 fill="url(#revenue)"
               />
               <Area
                 type="monotone"
                 dataKey="upperBound"
-                stroke="#82ca9d"
+                stroke="#10b981"
                 fillOpacity={0.3}
                 fill="url(#bounds)"
               />
               <Area
                 type="monotone"
                 dataKey="lowerBound"
-                stroke="#82ca9d"
+                stroke="#10b981"
                 fillOpacity={0.3}
                 fill="url(#bounds)"
               />

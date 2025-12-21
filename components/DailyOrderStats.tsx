@@ -18,15 +18,15 @@ import {
   Cell,
 } from "recharts";
 import {
-  BrainCircuitIcon,
-  TrendingUpIcon,
-  ActivityIcon,
-  BoxIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  PackageIcon,
-  SparklesIcon,
-  ZapIcon,
+  BrainCircuit,
+  TrendingUp,
+  Activity,
+  Box,
+  CheckCircle2,
+  Clock,
+  Package,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 
 
@@ -37,34 +37,34 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="bg-background/90 backdrop-blur-md border-2 border-primary/20 p-4 rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200">
         <div className="flex items-center gap-2 mb-3 border-b border-border/50 pb-2">
-          <SparklesIcon className="h-4 w-4 text-primary" />
+          <Sparkles className="h-4 w-4 text-primary" />
           <h3 className="font-bold text-base">{label} 智能分析</h3>
         </div>
         <div className="space-y-2.5">
           <div className="flex items-center justify-between gap-6 text-sm">
             <span className="text-muted-foreground flex items-center">
-              <BoxIcon className="h-3.5 w-3.5 mr-2" />
+              <Box className="h-3.5 w-3.5 mr-2" />
               实际订单:
             </span>
             <span className="font-bold text-foreground">{monthData.orders}</span>
           </div>
           <div className="flex items-center justify-between gap-6 text-sm">
             <span className="text-muted-foreground flex items-center">
-              <CheckCircle2Icon className="h-3.5 w-3.5 mr-2" />
+              <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
               交付完成:
             </span>
             <span className="font-bold text-green-500">{monthData.completed}</span>
           </div>
           <div className="flex items-center justify-between gap-6 text-sm">
             <span className="text-muted-foreground flex items-center">
-              <ZapIcon className="h-3.5 w-3.5 mr-2 text-blue-400" />
+              <Zap className="h-3.5 w-3.5 mr-2 text-blue-400" />
               AI 预测量:
             </span>
             <span className="font-bold text-blue-400">{monthData.forecast}</span>
           </div>
           <div className="flex items-center justify-between gap-6 text-sm pt-2 border-t border-border/50">
             <span className="text-muted-foreground flex items-center">
-              <ActivityIcon className="h-3.5 w-3.5 mr-2" />
+              <Activity className="h-3.5 w-3.5 mr-2" />
               效率协同:
             </span>
             <span className="font-bold text-primary">{monthData.efficiency}%</span>
@@ -117,7 +117,7 @@ export function DailyOrderStats() {
   return (
     <Card className="col-span-full border-none shadow-xl bg-gradient-to-b from-card to-card/50 overflow-hidden relative">
       <div className="absolute top-0 right-0 p-8 pt-4 opacity-5">
-        <BrainCircuitIcon className="h-48 w-48 text-primary" />
+        <BrainCircuit className="h-48 w-48 text-primary" />
       </div>
       
       <CardHeader className="pb-4 relative z-10">
@@ -128,7 +128,7 @@ export function DailyOrderStats() {
                 月度订单统计与 AI 洞察
               </CardTitle>
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 animate-pulse transition-all">
-                <BrainCircuitIcon className="h-3.5 w-3.5 mr-1.5" />
+                <BrainCircuit className="h-3.5 w-3.5 mr-1.5" />
                 智能模型 v4.2 监控中
               </Badge>
             </div>
@@ -157,7 +157,7 @@ export function DailyOrderStats() {
           <div className="relative group p-5 rounded-2xl bg-primary/5 hover:bg-primary/10 transition-all duration-300 border border-primary/10">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-lg bg-primary/20">
-                <PackageIcon className="h-5 w-5 text-primary" />
+                <Package className="h-5 w-5 text-primary" />
               </div>
               <Badge variant="outline" className="text-xs font-mono">ANNUAL TOTAL</Badge>
             </div>
@@ -166,7 +166,7 @@ export function DailyOrderStats() {
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black tabular-nums tracking-tighter">{totalOrders.toLocaleString()}</span>
                 <span className="text-xs font-bold text-green-500 flex items-center">
-                  <TrendingUpIcon className="h-3 w-3 mr-0.5" />
+                  <TrendingUp className="h-3 w-3 mr-0.5" />
                   {growthRate}
                 </span>
               </div>
@@ -176,7 +176,7 @@ export function DailyOrderStats() {
           <div className="relative group p-5 rounded-2xl bg-green-500/5 hover:bg-green-500/10 transition-all duration-300 border border-green-500/10">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-lg bg-green-500/20">
-                <ActivityIcon className="h-5 w-5 text-green-600" />
+                <Activity className="h-5 w-5 text-green-600" />
               </div>
               <Badge variant="outline" className="text-xs font-mono text-green-600 border-green-200">OPTIMIZED</Badge>
             </div>
@@ -192,7 +192,7 @@ export function DailyOrderStats() {
           <div className="relative group p-5 rounded-2xl bg-blue-500/5 hover:bg-blue-500/10 transition-all duration-300 border border-blue-500/10">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 rounded-lg bg-blue-500/20">
-                <ClockIcon className="h-5 w-5 text-blue-600" />
+                <Clock className="h-5 w-5 text-blue-600" />
               </div>
               <Badge variant="outline" className="text-xs font-mono text-blue-600 border-blue-200">REAL-TIME</Badge>
             </div>
@@ -211,12 +211,12 @@ export function DailyOrderStats() {
             <ComposedChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.4} />
                 </linearGradient>
                 <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#60a5fa" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
@@ -271,7 +271,7 @@ export function DailyOrderStats() {
         <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <SparklesIcon className="h-5 w-5 text-primary" />
+              <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
               <p className="text-sm font-bold text-primary">AI 业务智能看板</p>
@@ -286,4 +286,3 @@ export function DailyOrderStats() {
     </Card>
   );
 }
- 
