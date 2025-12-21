@@ -12,7 +12,6 @@ import {
   BookOpen,
   Settings, 
   LucideIcon,
-  Home,
   Cpu,
   Database
 } from "lucide-react";
@@ -83,21 +82,11 @@ export default function Sidebar() {
 
   return (
     <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
-      <div className="p-4 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground">MCP</h1>
-        <p className="text-sm text-muted-foreground">订单管理与分析系统</p>
+      <div className="p-6 border-b border-border">
+        <h1 className="text-xl font-bold text-foreground tracking-tight">鹰眼智能</h1>
+        <p className="text-[10px] text-muted-foreground mt-1 font-medium">@CopyRight 栉云科技</p>
       </div>
       <nav className="flex flex-col gap-4 px-2 py-4 flex-1 overflow-y-auto">
-        <Link
-          href="/"
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground",
-            pathname === "/" ? "bg-accent text-foreground" : ""
-          )}
-        >
-          <Home className="h-4 w-4" />
-          <span>首页</span>
-        </Link>
         {navItems.map((item) => (
           <div key={item.href}>
             <Link
