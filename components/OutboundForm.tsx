@@ -27,12 +27,14 @@ export default function OutboundForm() {
       const order: Omit<Order, "id"> = {
         type: "outbound",
         status: "pending",
-        orderNumber: `OUT-${Date.now()}`,
+        order_number: `OUT-${Date.now()}`,
         customer: data.recipient,
-        productName: "", // 将在后端根据productId填充
+        product_name: "", // 将在后端根据productId填充
         quantity: data.quantity,
         value: 0, // 将在后端计算
         date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         products: [{
           id: data.productId,
           name: "", // 将在后端填充

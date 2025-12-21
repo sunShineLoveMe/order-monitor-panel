@@ -3,7 +3,7 @@ import { AnomalyDetectionResult, OrderAnalysis, aiService } from "./ai";
 
 export type ExceptionHandlingResult = {
   orderId: string;
-  orderNumber: string;
+  order_number: string;
   exceptionType: string;
   detectedAt: string;
   status: "pending" | "processing" | "resolved" | "escalated";
@@ -134,7 +134,7 @@ class ExceptionHandlingService {
     // 创建异常处理结果
     const result: ExceptionHandlingResult = {
       orderId: order.id,
-      orderNumber: order.orderNumber,
+      order_number: order.order_number,
       exceptionType,
       detectedAt: new Date().toISOString(),
       status: "pending",

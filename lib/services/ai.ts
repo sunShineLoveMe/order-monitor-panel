@@ -10,8 +10,8 @@ export interface AIInsight {
 
 export interface OrderAnalysis {
   orderId: string;
-  orderNumber: string;
-  analysisType: 'inbound' | 'outbound';
+  order_number: string;
+  analysis_type: 'inbound' | 'outbound';
   findings: {
     category: string;
     description: string;
@@ -241,7 +241,7 @@ export const embeddingModels: EmbeddingModelConfig[] = [
 
 // 添加订单扫描接口
 export interface OrderScanResult {
-  orderNumber?: string;
+  order_number?: string;
   date?: string;
   supplier?: string;
   total?: number;
@@ -909,8 +909,8 @@ export class AIService {
 
     return {
       orderId: order.id,
-      orderNumber: order.order_number,
-      analysisType: order.type,
+      order_number: order.order_number,
+      analysis_type: order.type,
       findings,
       summary: '订单分析完成',
       riskScore: findings.filter(f => f.severity === 'high').length * 0.3,

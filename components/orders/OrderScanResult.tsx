@@ -40,7 +40,7 @@ interface Customer {
 }
 
 interface ScanResult {
-  orderNumber?: string;
+  order_number?: string;
   date?: string;
   supplier?: string;
   total?: number;
@@ -199,11 +199,11 @@ const OrderScanResult: React.FC<OrderScanResultProps> = ({ result }) => {
         <TabsContent value="orderInfo" className="space-y-4 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="orderNumber">订单编号</Label>
+              <Label htmlFor="order_number">订单编号</Label>
               <Input
-                id="orderNumber"
-                value={editedResult.orderNumber || ''}
-                onChange={(e) => handleChange('orderNumber', e.target.value)}
+                id="order_number"
+                value={editedResult.order_number || ''}
+                onChange={(e) => handleChange('order_number', e.target.value)}
                 disabled={!editing}
               />
             </div>

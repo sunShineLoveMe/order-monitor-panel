@@ -228,7 +228,7 @@ export function ExceptionHandlingPanel() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {getStatusIcon(exception.status)}
-                          <CardTitle className="text-base">{exception.orderNumber}</CardTitle>
+                          <CardTitle className="text-base">{exception.order_number}</CardTitle>
                         </div>
                         <Badge className={getPriorityClass(exception.priority)}>
                           {getPriorityText(exception.priority)}优先级
@@ -286,7 +286,7 @@ export function ExceptionHandlingPanel() {
                           <div className="flex items-center justify-between">
                             <DialogTitle className="flex items-center gap-2">
                               {getStatusIcon(selectedException.status)}
-                              <span>异常订单: {selectedException.orderNumber}</span>
+                              <span>异常订单: {selectedException.order_number}</span>
                             </DialogTitle>
                             <Badge className={getPriorityClass(selectedException.priority)}>
                               {getPriorityText(selectedException.priority)}优先级

@@ -167,8 +167,8 @@ export default function OrdersTable({
     // 创建一个模拟的分析结果，确保即使API失败也有数据显示
     const mockResult: OrderAnalysis = {
       orderId: order.id,
-      orderNumber: order.order_number,
-      analysisType: order.type,
+      order_number: order.order_number,
+      analysis_type: order.type,
       findings: [
         {
           category: '价格异常', 

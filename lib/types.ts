@@ -17,6 +17,12 @@ export interface Order {
     resolved_at?: string;
     status: 'open' | 'resolved';
   }>;
+  products?: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
 }
 
 export interface InventoryItem {
@@ -28,7 +34,7 @@ export interface InventoryItem {
   threshold: number;
   location: string;
   price: number;
-  status: string;
+  status: 'in_stock' | 'low_stock' | 'out_of_stock';
   lastUpdated: string;
   supplier: string;
 } 
