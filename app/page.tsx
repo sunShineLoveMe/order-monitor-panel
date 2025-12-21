@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { DatabaseService } from "@/lib/services/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   ArrowDownIcon, 
@@ -24,6 +28,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AISalesProfitForecast } from "@/components/AISalesProfitForecast";
 
 export default function Home() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await DatabaseService.getDashboardStats();
+        setStats(data);
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const formatNumber = (num: number) => num?.toLocaleString() || "0";
+  const formatPercent = (num: number) => (num > 0 ? "+" : "") + num?.toFixed(1) + "%";
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -44,9 +67,9 @@ export default function Home() {
             <PackageIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12,487</div>
+            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.totalInventory)}</div>
             <p className="text-xs text-muted-foreground">
-              +10.1% 较上月
+              {loading ? "..." : formatPercent(stats?.monthlyGrowth.inventory)} 较上月
             </p>
           </CardContent>
         </Card>
@@ -59,9 +82,9 @@ export default function Home() {
             <ArrowDownIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,532</div>
+            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.inboundCount)}</div>
             <p className="text-xs text-muted-foreground">
-              +18.2% 较上月
+              {loading ? "..." : formatPercent(stats?.monthlyGrowth.inbound)} 较上月
             </p>
           </CardContent>
         </Card>
@@ -74,9 +97,9 @@ export default function Home() {
             <ArrowUpIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,205</div>
+            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.outboundCount)}</div>
             <p className="text-xs text-muted-foreground">
-              +12.5% 较上月
+              {loading ? "..." : formatPercent(stats?.monthlyGrowth.outbound)} 较上月
             </p>
           </CardContent>
         </Card>
@@ -89,9 +112,9 @@ export default function Home() {
             <CreditCardIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">23</div>
+            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.exceptionCount)}</div>
             <p className="text-xs text-muted-foreground">
-              -4.3% 较上月
+              {loading ? "..." : formatPercent(stats?.monthlyGrowth.exception)} 较上月
             </p>
           </CardContent>
         </Card>

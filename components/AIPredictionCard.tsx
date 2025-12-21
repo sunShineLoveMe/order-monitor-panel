@@ -63,12 +63,15 @@ export default function AIPredictionCard({ className }: AIPredictionCardProps) {
     try {
       setIsLoading(true);
       
-      // 获取供应链风险预测
-      const supplyChainRisk = await aiService.predictSupplyChainRisks();
+      // Get predictions from database
+      const [salesData, supplyChainData] = await Promise.all([
+        DatabaseService.getPrediction('sales'),
+        DatabaseService.getPrediction('inventory')
+      ]);
       
       setPredictions({
-        sales: null,
-        supplyChain: supplyChainRisk
+        sales: salesData,
+        supplyChain: supplyChainData
       });
       setLastUpdated(new Date().toLocaleString());
     } catch (error) {

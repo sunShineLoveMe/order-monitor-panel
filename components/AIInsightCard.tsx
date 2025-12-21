@@ -25,12 +25,26 @@ export default function AIInsightCard({ className }: AIInsightCardProps) {
       setError(null);
       
       try {
-        // 获取最近30天的订单和库存数据
+        // 1. First attempt to get pre-generated insights from database
+        const dbInsights = await DatabaseService.getAIInsights();
+        
+        if (dbInsights && dbInsights.length > 0) {
+          const mappedInsights: AIInsight[] = dbInsights.map(insight => ({
+            type: insight.category as 'sales' | 'inventory' | 'supply_chain',
+            title: insight.title,
+            description: insight.summary,
+            recommendations: [insight.details]
+          }));
+          setInsights(mappedInsights);
+          setLastUpdated(new Date().toLocaleString());
+          return;
+        }
+
+        // 2. If no pre-generated insights, try dynamic generation
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
-        
-        // 尝试从数据库获取数据
+
         const ordersResult = await DatabaseService.getOrders();
         const inventory = await DatabaseService.getInventory();
         

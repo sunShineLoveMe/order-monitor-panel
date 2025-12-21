@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatabaseService } from "@/lib/services/database";
 import { Badge } from "@/components/ui/badge";
 import {
   ComposedChart,
@@ -28,38 +29,6 @@ import {
   ZapIcon,
 } from "lucide-react";
 
-// 生成 12 个月的模拟数据
-const generateMonthlyStats = () => {
-  const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-  
-  return months.map((month, index) => {
-    // 基础订单数：模拟全年的季节性波动，Q4 是高峰
-    const seasonalFactor = index >= 9 ? 2.5 : index >= 6 ? 1.8 : 1.2;
-    const baseOrders = Math.floor(Math.random() * 50 * seasonalFactor) + 100;
-    
-    // 已完成订单数：模拟一个较高的完成率
-    const completed = Math.floor(baseOrders * (0.85 + Math.random() * 0.1));
-    const processing = baseOrders - completed;
-    
-    // 效率指数：模拟与订单量相关的波动，通过 AI 优化
-    const efficiency = 88 + Math.floor(Math.random() * 8) + (index > 8 ? 2 : 0);
-    
-    // AI 预测值：略高于当前值，模拟智能预测
-    const forecast = Math.floor(baseOrders * (1.1 + Math.random() * 0.15));
-
-    return {
-      month,
-      orders: baseOrders,
-      completed,
-      processing,
-      efficiency,
-      forecast,
-      trend: +(10 * Math.sin(index / 12 * Math.PI)).toFixed(1), // 模拟趋势线
-    };
-  });
-};
-
-const data = generateMonthlyStats();
 
 // 自定义工具提示
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -113,9 +82,37 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function DailyOrderStats() {
+  const [data, setData] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const stats = await DatabaseService.getMonthlyOverview();
+        const mappedData = stats.map((s: any) => ({
+          month: s.month,
+          orders: s.inbound + s.outbound,
+          completed: s.outbound, // Simulating completed as outbound for now
+          processing: s.inbound,
+          efficiency: s.efficiency,
+          forecast: s.forecast,
+          trend: Number(s.trend)
+        }));
+        setData(mappedData);
+      } catch (error) {
+        console.error("Failed to load monthly stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  if (loading) return <div className="h-[400px] flex items-center justify-center">加载数据中...</div>;
+
   const totalOrders = data.reduce((sum, m) => sum + m.orders, 0);
-  const avgEfficiency = Math.round(data.reduce((sum, m) => sum + m.efficiency, 0) / data.length);
-  const growthRate = "+12.5%";
+  const avgEfficiency = data.length > 0 ? Math.round(data.reduce((sum, m) => sum + m.efficiency, 0) / data.length) : 0;
+  const growthRate = "+15.2%";
 
   return (
     <Card className="col-span-full border-none shadow-xl bg-gradient-to-b from-card to-card/50 overflow-hidden relative">

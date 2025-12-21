@@ -30,18 +30,9 @@ export default function OrdersPage() {
     try {
       setLoading(true);
       const type = activeTab === 0 ? undefined : activeTab === 1 ? 'inbound' : 'outbound';
-      // 在开发阶段使用 mockOrders 数据
-      if (process.env.NODE_ENV === 'development') {
-        const filteredOrders = type 
-          ? mockOrders.filter((order: Order) => order.type === type)
-          : mockOrders;
-        setOrders(filteredOrders);
-        setTotalOrders(filteredOrders.length);
-      } else {
-        const result = await DatabaseService.getOrders(type, currentPage, pageSize);
-        setOrders(result.orders);
-        setTotalOrders(result.total);
-      }
+      const result = await DatabaseService.getOrders(type, currentPage, pageSize);
+      setOrders(result.orders);
+      setTotalOrders(result.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载订单失败');
     } finally {

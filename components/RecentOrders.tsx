@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { mockOrders } from "@/lib/data";
+import { DatabaseService } from "@/lib/services/database";
 import { cn } from "@/lib/utils";
 import { 
   ArrowDownIcon, 
@@ -18,62 +18,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Order } from "@/lib/types";
 
-// 添加更多模拟订单数据，确保有足够的数据进行滚动
-const extendedMockOrders: Order[] = [
-  ...mockOrders,
-  {
-    id: "4",
-    order_number: "OUT-20240302-001",
-    customer: "客户D",
-    type: "outbound",
-    status: "completed",
-    product_name: "MacBook Pro",
-    quantity: 10,
-    value: 30000,
-    date: "2024-03-02",
-    created_at: "2024-03-02T00:00:00Z",
-    updated_at: "2024-03-02T01:30:00Z"
-  },
-  {
-    id: "5",
-    order_number: "IN-20240302-001",
-    customer: "供应商B",
-    type: "inbound",
-    status: "processing",
-    product_name: "iPad Pro",
-    quantity: 80,
-    value: 15000,
-    date: "2024-03-02",
-    created_at: "2024-03-02T02:15:00Z",
-    updated_at: "2024-03-02T02:15:00Z"
-  },
-  {
-    id: "6",
-    order_number: "OUT-20240302-002",
-    customer: "客户E",
-    type: "outbound",
-    status: "exception",
-    product_name: "Apple Watch",
-    quantity: 20,
-    value: 8000,
-    date: "2024-03-02",
-    created_at: "2024-03-02T03:45:00Z",
-    updated_at: "2024-03-02T04:20:00Z"
-  },
-  {
-    id: "7",
-    order_number: "IN-20240303-001",
-    customer: "供应商D",
-    type: "inbound",
-    status: "completed",
-    product_name: "Mac Mini",
-    quantity: 30,
-    value: 25000,
-    date: "2024-03-03",
-    created_at: "2024-03-03T09:10:00Z",
-    updated_at: "2024-03-03T10:25:00Z"
-  }
-];
 
 interface AIInsightData {
   type: string;
@@ -86,34 +30,47 @@ interface AIInsightsMap {
 }
 
 export function RecentOrders() {
-  const [visibleOrders, setVisibleOrders] = useState<Order[]>(extendedMockOrders.slice(0, 4));
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [visibleOrders, setVisibleOrders] = useState<Order[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [animating, setAnimating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // AI分析的附加信息
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        const { orders: fetchedOrders } = await DatabaseService.getOrders(undefined, 1, 20);
+        setOrders(fetchedOrders);
+        setVisibleOrders(fetchedOrders.slice(0, 4));
+      } catch (error) {
+        console.error("Failed to load recent orders:", error);
+      }
+    };
+    loadOrders();
+    // Refresh every 30 seconds for live feel
+    const refreshInterval = setInterval(loadOrders, 30000);
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // AI分析的附加信息 (Keeping mock for now as it's UI decoration)
   const aiInsights: AIInsightsMap = {
     "1": { type: "efficiency", message: "处理时间低于平均水平15%", score: 86 },
     "2": { type: "risk", message: "预计72小时内完成", score: 78 },
     "3": { type: "prediction", message: "库存周转率提升12%", score: 92 },
-    "4": { type: "efficiency", message: "客户满意度评分: 4.8/5", score: 96 },
-    "5": { type: "prediction", message: "预计明日10:00完成处理", score: 84 },
-    "6": { type: "risk", message: "建议优先处理异常", score: 65 },
-    "7": { type: "efficiency", message: "价格合理性: 优", score: 90 }
   };
 
   useEffect(() => {
-    // 自动滚动效果
+    if (orders.length === 0) return;
+
     const interval = setInterval(() => {
       if (!animating) {
         setAnimating(true);
-        const nextIndex = (currentIndex + 1) % extendedMockOrders.length;
+        const nextIndex = (currentIndex + 1) % orders.length;
         const newVisibleOrders: Order[] = [];
         
-        // 保留最近的3个订单，添加1个新订单
         for (let i = 0; i < 4; i++) {
-          const index = (nextIndex + i) % extendedMockOrders.length;
-          newVisibleOrders.push(extendedMockOrders[index]);
+          const index = (nextIndex + i) % orders.length;
+          newVisibleOrders.push(orders[index]);
         }
         
         setCurrentIndex(nextIndex);
@@ -122,10 +79,10 @@ export function RecentOrders() {
           setAnimating(false);
         }, 500);
       }
-    }, 3000); // 每3秒滚动一次
+    }, 3000);
     
     return () => clearInterval(interval);
-  }, [currentIndex, animating]);
+  }, [currentIndex, animating, orders]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -270,7 +227,7 @@ export function RecentOrders() {
       
       <div className="flex justify-center mt-2">
         <div className="flex space-x-1">
-          {extendedMockOrders.map((_, index) => (
+          {orders.map((_, index) => (
             <div 
               key={index}
               className={`h-1.5 w-5 rounded-full transition-all duration-300 ${

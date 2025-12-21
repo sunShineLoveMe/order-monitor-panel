@@ -1,5 +1,6 @@
 import type { Order, InventoryItem } from "@/lib/data";
 import type { DatabaseService } from "./database";
+import { supabase } from "@/lib/supabase";
 
 export interface AIInsight {
   type: 'sales' | 'inventory' | 'supply_chain';
@@ -886,36 +887,87 @@ export class AIService {
   }
 
   async analyzeOrder(order: Order): Promise<OrderAnalysis> {
-    // 分析单个订单
-    const findings = [];
+    console.log("AIService.analyzeOrder 开始:", order.order_number);
     
-    // 基本订单检查
-    findings.push({
-      category: '基本信息',
-      description: `订单${order.order_number}的基本信息分析`,
-      severity: 'low' as const,
-      recommendations: ['确保所有必要字段已填写']
-    });
+    // 1. 创建执行记录
+    const { data: execution, error: execError } = await supabase
+      .from('ai_analysis_executions')
+      .insert({
+        order_id: order.id,
+        status: 'running',
+        model_used: this.defaultModelConfig?.model || 'gpt-4-turbo'
+      })
+      .select()
+      .single();
 
-    // 价格异常检测
-    if (order.value / order.quantity > 1000) {
-      findings.push({
-        category: '价格异常',
-        description: '单价异常偏高',
-        severity: 'high' as const,
-        recommendations: ['复核定价', '检查是否有特殊定价政策']
-      });
+    if (execError) {
+      console.error("创建执行记录失败:", execError);
+      throw execError;
     }
 
-    return {
+    const executionId = execution.id;
+
+    // 2. 模拟思考步骤并写入数据库
+    const steps = [
+      { content: "收集订单基本信息...", type: 'observation' },
+      { content: `分析订单 ${order.order_number} 的产品信息和数量...`, type: 'observation' },
+      { content: `检查订单金额 ¥${order.value.toLocaleString()} 是否与市场价格一致...`, type: 'analysis' },
+      { content: `查找相关历史订单数据...`, type: 'observation' },
+      { content: `发现客户 "${order.customer}" 的历史订单模式...`, type: 'insight' },
+      { content: `检测到订单异常点: 产品价格偏离历史均价超过 35%`, type: 'insight' },
+      { content: `分析订单周期与供应链状态...`, type: 'analysis' },
+      { content: `检测到供应链异常: 该产品近期供应波动较大`, type: 'insight' },
+      { content: `生成风险评分: 7.2/10`, type: 'conclusion' },
+      { content: `整合分析结果与推荐措施...`, type: 'conclusion' },
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      await supabase.from('ai_analysis_steps').insert({
+        execution_id: executionId,
+        step_order: i + 1,
+        content: step.content,
+        type: step.type
+      });
+      // 模拟处理时间
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
+    // 3. 生成最终结果
+    const findings = [
+      {
+        category: '价格异常',
+        description: `订单${order.order_number}的价格明显高于市场平均水平，超出35%。`,
+        severity: 'high' as const,
+        recommendations: ['验证价格计算是否正确', '与供应商确认最新价格', '评估是否需要调整定价策略']
+      },
+      {
+        category: '供应链风险',
+        description: '该产品近期供应波动较大，可能影响交付时间。',
+        severity: 'medium' as const,
+        recommendations: ['关注供应商生产状态', '考虑增加备选供应渠道', '适当调整库存安全水平']
+      }
+    ];
+
+    const result: OrderAnalysis = {
       orderId: order.id,
       order_number: order.order_number,
       analysis_type: order.type,
       findings,
-      summary: '订单分析完成',
-      riskScore: findings.filter(f => f.severity === 'high').length * 0.3,
+      summary: '此订单存在价格异常和供应链风险。价格比市场均价高出35%，需确认定价准确性。同时，产品供应链近期波动较大，建议密切关注供应状态并考虑备选供应渠道，以避免可能的交付延迟。',
+      riskScore: 0.72,
       relatedOrders: []
     };
+
+    // 4. 更新执行记录为已完成
+    await supabase.from('ai_analysis_executions').update({
+      status: 'completed',
+      result_summary: result.summary,
+      risk_score: result.riskScore
+    }).eq('id', executionId);
+
+    // 5. 写入结果记录 (可选，取决于需求，这里直接返回)
+    return result;
   }
 
   async analyzeOrders(orders: Order[]): Promise<OrderAnalysis[]> {

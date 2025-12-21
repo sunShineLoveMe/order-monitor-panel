@@ -51,9 +51,10 @@ export default function InventoryTable() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部仓库</SelectItem>
-            <SelectItem value="SH">上海仓</SelectItem>
-            <SelectItem value="BJ">北京仓</SelectItem>
-            <SelectItem value="GZ">广州仓</SelectItem>
+            <SelectItem value="上海一号仓">上海一号仓</SelectItem>
+            <SelectItem value="北京二号仓">北京二号仓</SelectItem>
+            <SelectItem value="深圳三号仓">深圳三号仓</SelectItem>
+            <SelectItem value="广州四号仓">广州四号仓</SelectItem>
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
