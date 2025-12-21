@@ -29,7 +29,7 @@ export default function TopNavbar() {
   return (
     <header className="fixed top-0 right-0 left-64 h-14 border-b border-border/40 bg-background/50 backdrop-blur-xl z-30">
       <div className="flex h-full items-center justify-between px-6">
-        <h1 className="text-lg font-medium">Argus AI 智能监控面板</h1>
+        <h1 className="text-lg font-bold argus-text-gradient">Argus AI 智能监控面板</h1>
       
         <div className="flex items-center space-x-4">
           {/* 语言选择 */}

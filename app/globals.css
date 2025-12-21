@@ -125,6 +125,20 @@
   transition: all 0.3s ease;
 }
 
+.argus-text-gradient {
+  background: linear-gradient(135deg, #fff 0%, hsl(var(--argus-primary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.argus-text-muted-gradient {
+  background: linear-gradient(135deg, hsl(var(--muted-foreground)) 30%, hsl(var(--argus-primary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .glass-card:hover {
   @apply border-primary/20 bg-background/80 shadow-primary/5;
 }

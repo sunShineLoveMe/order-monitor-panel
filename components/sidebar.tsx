@@ -87,7 +87,7 @@ export default function Sidebar() {
           <img src="/images/logo.png" alt="栉云科技" className="h-10 w-auto object-contain" />
           <h1 className="text-xl font-bold text-foreground tracking-tight">Argus AI</h1>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-2 font-medium leading-relaxed">
+        <p className="text-[10px] mt-2 font-medium leading-relaxed argus-text-muted-gradient">
           阿格斯之眼 | 全链路全时态智能监测平台
         </p>
       </div>
