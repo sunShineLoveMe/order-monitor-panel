@@ -4,17 +4,24 @@ import { useState, useEffect } from "react";
 import { DatabaseService } from "@/lib/services/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  ArrowDownIcon, 
-  ArrowUpIcon, 
-  BarChart3Icon, 
-  CalendarIcon, 
-  CreditCardIcon, 
-  DollarSignIcon, 
-  PackageIcon, 
-  TrendingDownIcon, 
-  TrendingUpIcon,
-  BrainCircuitIcon,
-  RefreshCwIcon,
+  Plus, 
+  Search, 
+  Globe, 
+  Moon, 
+  Sun, 
+  User,
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  Package,
+  ArrowUp,
+  ArrowDown,
+  CreditCard,
+  LayoutDashboard,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  BrainCircuit
 } from "lucide-react";
 import { Overview } from "@/components/Overview";
 import { RecentOrders } from "@/components/RecentOrders";
@@ -53,70 +60,78 @@ export default function Home() {
         <h2 className="text-3xl font-bold tracking-tight">数据面板</h2>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="icon">
-            <RefreshCwIcon className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="glass-card overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              总库存量
-            </CardTitle>
-            <PackageIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">总库存量</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.totalInventory)}</div>
             <p className="text-xs text-muted-foreground">
-              {loading ? "..." : formatPercent(stats?.monthlyGrowth.inventory)} 较上月
+              <span className="text-green-500 font-medium">正常</span> 运行中
             </p>
           </CardContent>
+          <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </Card>
         
-        <Card>
+        <Card className="glass-card overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              本月入库
-            </CardTitle>
-            <ArrowDownIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">待处理订单</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.inboundCount)}</div>
+            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.activeOrders)}</div>
             <p className="text-xs text-muted-foreground">
-              {loading ? "..." : formatPercent(stats?.monthlyGrowth.inbound)} 较上月
+              当前实时处理条目
             </p>
           </CardContent>
+          <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </Card>
         
-        <Card>
+        <Card className="glass-card overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              本月出库
-            </CardTitle>
-            <ArrowUpIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">异常率 (AI判定)</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.outboundCount)}</div>
+            <div className="text-2xl font-bold">{loading ? "..." : stats?.exceptionRate}%</div>
             <p className="text-xs text-muted-foreground">
-              {loading ? "..." : formatPercent(stats?.monthlyGrowth.outbound)} 较上月
+              基于全时态数据扫描
             </p>
           </CardContent>
+          <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </Card>
         
-        <Card>
+        <Card className="glass-card overflow-hidden group">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              异常订单
-            </CardTitle>
-            <CreditCardIcon className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">系统运行效率</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? "..." : formatNumber(stats?.exceptionCount)}</div>
+            <div className="text-2xl font-bold">98.2%</div>
             <p className="text-xs text-muted-foreground">
-              {loading ? "..." : formatPercent(stats?.monthlyGrowth.exception)} 较上月
+              <span className="text-green-500">↑ 1.2%</span> 较昨日提升
             </p>
           </CardContent>
+          <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </Card>
       </div>
       
@@ -160,7 +175,7 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground">上月平均</p>
                   </div>
                   <div className="ml-auto flex items-center space-x-1">
-                    <TrendingUpIcon className="h-4 w-4 text-green-500" />
+                    <TrendingUp className="h-4 w-4 text-green-500" />
                     <span className="text-sm font-medium text-green-500">4.2</span>
                   </div>
                 </div>
@@ -170,7 +185,7 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground">电子产品</p>
                   </div>
                   <div className="ml-auto flex items-center space-x-1">
-                    <TrendingUpIcon className="h-4 w-4 text-green-500" />
+                    <TrendingUp className="h-4 w-4 text-green-500" />
                     <span className="text-sm font-medium text-green-500">6.8</span>
                   </div>
                 </div>
@@ -180,7 +195,7 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground">办公用品</p>
                   </div>
                   <div className="ml-auto flex items-center space-x-1">
-                    <TrendingDownIcon className="h-4 w-4 text-red-500" />
+                    <TrendingDown className="h-4 w-4 text-red-500" />
                     <span className="text-sm font-medium text-red-500">2.1</span>
                   </div>
                 </div>
@@ -209,7 +224,7 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2 p-4 border rounded-md">
                       <div className="flex items-center gap-2">
-                        <BrainCircuitIcon className="h-5 w-5 text-primary" />
+                        <BrainCircuit className="h-5 w-5 text-primary" />
                         <h3 className="font-medium">库存优化</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -223,7 +238,7 @@ export default function Home() {
                     
                     <div className="space-y-2 p-4 border rounded-md">
                       <div className="flex items-center gap-2">
-                        <BrainCircuitIcon className="h-5 w-5 text-primary" />
+                        <BrainCircuit className="h-5 w-5 text-primary" />
                         <h3 className="font-medium">供应链风险</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -237,7 +252,7 @@ export default function Home() {
                     
                     <div className="space-y-2 p-4 border rounded-md">
                       <div className="flex items-center gap-2">
-                        <BrainCircuitIcon className="h-5 w-5 text-primary" />
+                        <BrainCircuit className="h-5 w-5 text-primary" />
                         <h3 className="font-medium">价格策略</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -267,7 +282,7 @@ export default function Home() {
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                      <TrendingUpIcon className="h-4 w-4 text-green-500" />
+                      <TrendingUp className="h-4 w-4 text-green-500" />
                     </div>
                     <div>
                       <h3 className="text-sm font-medium">增加热销产品库存</h3>
@@ -279,7 +294,7 @@ export default function Home() {
                   
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 h-6 w-6 rounded-full bg-red-100 flex items-center justify-center">
-                      <TrendingDownIcon className="h-4 w-4 text-red-500" />
+                      <TrendingDown className="h-4 w-4 text-red-500" />
                     </div>
                     <div>
                       <h3 className="text-sm font-medium">减少过剩库存</h3>
@@ -291,7 +306,7 @@ export default function Home() {
                   
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
-                      <PackageIcon className="h-4 w-4 text-blue-500" />
+                      <Package className="h-4 w-4 text-blue-500" />
                     </div>
                     <div>
                       <h3 className="text-sm font-medium">库存重新分配</h3>

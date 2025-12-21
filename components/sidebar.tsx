@@ -81,10 +81,15 @@ export default function Sidebar() {
   const [settingsOpen, setSettingsOpen] = React.useState(pathname.startsWith("/settings"));
 
   return (
-    <aside className="h-screen w-64 bg-background border-r border-border flex flex-col">
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold text-foreground tracking-tight">鹰眼智能</h1>
-        <p className="text-[10px] text-muted-foreground mt-1 font-medium">@CopyRight 栉云科技</p>
+    <aside className="h-screen w-64 bg-background/50 backdrop-blur-xl border-r border-border/50 flex flex-col z-20">
+      <div className="p-6 border-b border-border/50 argus-scan">
+        <div className="flex items-center gap-3">
+          <img src="/images/logo.png" alt="栉云科技" className="h-10 w-auto object-contain" />
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Argus AI</h1>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2 font-medium leading-relaxed">
+          阿格斯之眼 | 全链路全时态智能监测平台
+        </p>
       </div>
       <nav className="flex flex-col gap-4 px-2 py-4 flex-1 overflow-y-auto">
         {navItems.map((item) => (
