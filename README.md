@@ -2,7 +2,135 @@
 
 一个现代化的订单管理系统，集成了AI分析功能，采用苹果设计风格的用户界面。
 
+---
+
+## 🚀 待开发功能：N8N 工作流驱动的 AI 智能分析
+
+> **状态**: 方案设计中 | **优先级**: 高
+
+此功能旨在通过集成 n8n 自动化工作流，为异常订单提供深度智能分析。用户点击订单列表中的【AI智能分析】按钮后，系统将触发 n8n 工作流，自动收集服务器日志、数据库信息等，并最终呈现问题定位和解决方案。
+
+### 功能概述
+
+![AI智能分析按钮](/Users/june/.gemini/antigravity/brain/be950100-96c7-46e6-9ffd-213909a320cb/uploaded_image_0_1766305385699.png)
+
+1.  **触发入口**: 订单列表中每个异常订单行末尾的【AI智能分析】按钮。
+2.  **核心引擎**: n8n 自动化工作流平台。
+3.  **可视化反馈**: 弹出的 Modal 实时展示工作流的"思考过程"。
+
+![思考过程可视化](/Users/june/.gemini/antigravity/brain/be950100-96c7-46e6-9ffd-213909a320cb/uploaded_image_1_1766305385699.png)
+
+### 系统架构
+
+```mermaid
+sequenceDiagram
+    participant User as 用户 (前端)
+    participant API as Next.js API Route
+    participant N8N as n8n Workflow Engine
+    participant Logs as 日志服务 (e.g., ELK)
+    participant DB as 业务数据库
+    participant AI as LLM (GPT-4/Claude)
+
+    User->>API: 点击【AI智能分析】(orderId)
+    API->>N8N: 触发 Webhook (orderId, context)
+    activate N8N
+    N8N->>DB: 查询订单详情 & 关联表
+    N8N->>Logs: 检索相关错误日志
+    N8N->>AI: 发送上下文, 请求分析
+    AI-->>N8N: 返回分析结果
+    N8N-->>API: 通过 Webhook/SSE 推送进度 & 结果
+    deactivate N8N
+    API-->>User: 实时更新 UI (思考过程 + 最终结果)
+```
+
+### n8n 工作流设计
+
+工作流将包含以下核心节点：
+
+| 节点顺序 | 节点名称 | 功能描述 | 输出示例 |
+|---|---|---|---|
+| 1 | **Webhook Trigger** | 接收前端请求，获取 `orderId` | `{ orderId: 'IN-20241219-003' }` |
+| 2 | **DB: 获取订单详情** | 从 `orders` 表查询订单基本信息 | 订单号, 客户, 产品, 金额, 状态 |
+| 3 | **DB: 获取关联数据** | 查询 `order_items`, `customers`, `products` 等关联表 | 客户历史订单, 产品库存, 价格变动 |
+| 4 | **Logs: 检索错误日志** | 调用日志服务 API (如 Elasticsearch), 按 `orderId` 过滤 | 相关 error/warning 级别日志 |
+| 5 | **AI: 初步数据分析** | 将收集的数据发送给 LLM，进行初步分析和问题定位 | "初步判断：价格偏离历史均值..." |
+| 6 | **Conditional Logic** | (可选) 根据初步分析结果，决定是否需要更深入的检索 | - |
+| 7 | **AI: 生成解决方案** | 基于所有收集的信息，生成最终的分析报告和建议 | 问题根因, 解决方案列表, 预防措施 |
+| 8 | **Webhook Response** | 将最终结果返回给前端 API | `{ analysis: {...}, solutions: [...] }` |
+
+### 前端组件设计
+
+#### 1. 弹窗组件 (`AIAnalysisModal.tsx`)
+
+- **两个 Tab**:
+    - `思考过程`: 实时显示 n8n 工作流的执行步骤。每个步骤用卡片展示，包含图标、描述、状态（进行中/完成/发现洞察）。
+    - `分析结果`: 工作流完成后，展示最终的分析报告，包括问题定位、风险等级、建议解决方案。
+- **底部操作栏**:
+    - `关闭` 按钮。
+    - `导出分析报告` 按钮 (可复用现有 PDF 导出逻辑)。
+
+#### 2. 实时更新机制
+
+- **推荐方案: Server-Sent Events (SSE)**
+    - 前端调用 API 后，建立 SSE 连接。
+    - n8n 在每个关键节点完成后，向 API 发送进度更新。
+    - API 将更新推送给前端，前端动态添加"思考过程"步骤卡片。
+- **备选方案: Polling**
+    - 前端定时轮询 API，获取当前工作流状态。
+    - 简单但实时性较差。
+
+### API Routes 设计
+
+| 路由 | 方法 | 功能 |
+|---|---|---|
+| `/api/orders/[orderId]/analysis` | `POST` | 触发 n8n 工作流, 返回 `executionId` |
+| `/api/orders/analysis/stream` | `GET` | SSE 端点, 接收 `executionId`, 推送进度 |
+| `/api/webhooks/n8n` | `POST` | 接收 n8n 的回调, 更新内部状态 |
+
+### 数据收集范围 (可配置)
+
+为了进行有效的分析，n8n 工作流将自动收集以下信息：
+
+1.  **订单核心数据**: 订单号、类型、状态、金额、创建时间、异常描述。
+2.  **关联业务数据**:
+    - 客户信息 (历史订单量、信用等级)。
+    - 产品信息 (SKU、库存、历史价格)。
+    - 物流信息 (发货记录、延迟历史)。
+3.  **服务器日志**:
+    - 与该订单相关的 API 调用日志。
+    - Error/Warning 级别的系统日志。
+    - 支付网关的响应日志 (如适用)。
+4.  **外部数据** (可选):
+    - 市场价格对比。
+    - 供应商交付表现数据。
+
+### 技术依赖
+
+- **n8n**: 自托管或 n8n Cloud。
+- **LLM Provider**: OpenAI / Anthropic / 其他 (复用现有模型配置)。
+- **日志服务**: Elasticsearch / Loki / CloudWatch (需根据实际部署环境配置)。
+- **数据库**: PostgreSQL / MySQL / MongoDB (当前项目使用模拟数据，需对接真实 DB)。
+
+### 开发计划
+
+- [ ] **Phase 1: 基础集成**
+    - 创建 `AIAnalysisModal` 组件骨架。
+    - 设置 n8n Webhook Trigger 节点。
+    - 实现前端按钮触发 -> API -> n8n 的基本链路。
+- [ ] **Phase 2: 工作流构建**
+    - 在 n8n 中搭建完整的数据收集和 AI 分析工作流。
+    - 模拟日志和数据库节点 (使用 mock 数据)。
+- [ ] **Phase 3: 实时可视化**
+    - 实现 SSE 推送机制。
+    - 前端动态渲染"思考过程"步骤。
+- [ ] **Phase 4: 生产对接**
+    - 对接真实的日志服务和数据库。
+    - 优化 LLM 提示词，提升分析质量。
+
+---
+
 ## 最新更新：顶部导航栏和用户设置
+
 
 系统新增了固定的顶部导航栏，集成了用户信息、语言切换和深色/浅色模式切换功能，提升了用户体验。
 
