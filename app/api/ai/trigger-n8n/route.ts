@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server';
 
 // 临时硬编码 n8n Webhook URL（用于绕过 Vercel 环境变量问题）
-// TODO: 调试完成后改回使用环境变量
-const N8N_WEBHOOK_URL = 'http://54.252.239.164:5678/webhook-test/order-analysis';
+// IMPORTANT: 使用 Production URL (webhook) 而不是 Test URL (webhook-test)
+const N8N_WEBHOOK_URL = 'http://54.252.239.164:5678/webhook/order-analysis';
 
 export async function POST(request: Request) {
   try {
