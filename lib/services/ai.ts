@@ -910,10 +910,10 @@ export class AIService {
     console.log("n8n Webhook URL 状态:", n8nWebhookUrl ? "已配置" : "未配置");
 
     if (n8nWebhookUrl) {
-      console.log("检测到 n8n Webhook URL:", n8nWebhookUrl, "，正在触发工作流...");
+      console.log("检测到 n8n Webhook, 正在通过服务端代理触发工作流...");
       try {
-        // 异步触发 n8n 工作流，不需要等待它完成
-        fetch(n8nWebhookUrl, {
+        // 使用本地 API 路由作为代理，解决浏览器 Mixed Content (HTTPS -> HTTP) 限制
+        fetch('/api/ai/trigger-n8n', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -928,7 +928,7 @@ export class AIService {
             quantity: order.quantity,
             type: order.type
           }),
-        }).catch(err => console.error("触发 n8n 失败:", err));
+        }).catch(err => console.error("触发 n8n 代理失败:", err));
 
         // 返回一个初始状态对象，UI 将通过 Supabase Realtime 接收更新
         return {
