@@ -22,6 +22,7 @@ export interface OrderAnalysis {
   summary: string;
   riskScore: number;
   relatedOrders?: string[];
+  executionId?: string;
 }
 
 export interface AnomalyDetectionResult {
@@ -938,7 +939,8 @@ export class AIService {
           analysis_type: order.type as any,
           findings: [],
           summary: "正在联络 Argus 智脑中心 (n8n Workflow)...",
-          riskScore: 0
+          riskScore: 0,
+          executionId: executionId
         };
       } else {
         console.error("n8n 代理返回错误");

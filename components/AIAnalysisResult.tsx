@@ -50,20 +50,48 @@ export default function AIAnalysisResult({
     if (!order) return;
 
     const fetchResult = async (executionId: string) => {
+      // 1. Try to fetch detailed results
       const { data: resultData } = await supabase
         .from('ai_analysis_results')
         .select('*')
         .eq('execution_id', executionId)
+        .maybeSingle(); // Use maybeSingle to avoid 406 errors
+      
+      // 2. Try to fetch baseline result from execution (in case results table is empty)
+      const { data: execData } = await supabase
+        .from('ai_analysis_executions')
+        .select('result_summary, risk_score')
+        .eq('id', executionId)
         .single();
       
-      if (resultData) {
+      const summary = resultData?.root_cause || execData?.result_summary || "";
+      const rawRiskScore = resultData?.risk_level === 'high' ? 0.9 : 
+                         (resultData?.risk_level === 'medium' ? 0.5 : 
+                         (resultData?.risk_level === 'low' ? 0.2 : 
+                         (execData?.risk_score ? Number(execData.risk_score) / 10 : 0)));
+
+      // Ensure riskScore is normalized to 0-1
+      const normalizedRiskScore = rawRiskScore > 1 ? rawRiskScore / 10 : rawRiskScore;
+
+      // Ensure we have at least one finding if we have a summary
+      let findings = resultData?.solutions || [];
+      if (findings.length === 0 && summary) {
+        findings = [{
+          category: '机理分析',
+          description: summary,
+          severity: normalizedRiskScore > 0.7 ? 'high' : (normalizedRiskScore > 0.4 ? 'medium' : 'low'),
+          recommendations: ['执行专家复核流程', '核对交易报文有效性']
+        }];
+      }
+      
+      if (summary || findings.length > 0) {
         setFetchedAnalysisResult({
           orderId: order.id,
           order_number: order.order_number,
           analysis_type: order.type as any,
-          findings: resultData.solutions || [],
-          summary: resultData.root_cause || "",
-          riskScore: resultData.risk_level === 'high' ? 0.72 : (resultData.risk_level === 'medium' ? 0.45 : 0.2),
+          findings: findings,
+          summary: summary,
+          riskScore: normalizedRiskScore,
           relatedOrders: []
         });
       }
@@ -144,6 +172,19 @@ export default function AIAnalysisResult({
                   startStreamingResults();
                 }, 1000);
               }
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'ai_analysis_results',
+              filter: `execution_id=eq.${execution.id}`
+            },
+            () => {
+              // Detailed analysis arrived
+              fetchResult(execution.id);
             }
           )
           .subscribe();
