@@ -941,84 +941,28 @@ export class AIService {
           riskScore: 0
         };
       } else {
-        console.error("n8n 代理返回错误，切换回本地模拟模式");
+        console.error("n8n 代理返回错误");
+        throw new Error("n8n 代理响应异常");
       }
     } catch (error) {
-      console.error("调用 n8n 代理失败，切换回模拟模式:", error);
-    }
-
-    // 2. 模拟思考步骤并写入数据库 - 仅在没有 n8n 时运行
-    const steps = [
-      { content: `[SYSTEM] 启动深度感知引擎，正在调取订单 ${order.order_number} 的全量元数据...`, type: 'observation' },
-      { content: `[ENVIRONMENT] 扫描仓库环境状态... 检测到该时段仓储网络延迟 24ms, 处于正常波动范围。`, type: 'observation' },
-      { content: `[TRACE] 关联分析: 检测到该 SKU (${order.product_name}) 的上游供应链接口返回了异常延迟信号 (-15%)。`, type: 'analysis' },
-      { content: `[CROSS-CHECK] 智能比对: 订单金额 ¥${order.value.toLocaleString()} 偏离该客户 "${order.customer}" 的历史采购均值曲线。`, type: 'analysis' },
-      { content: `[LOG-SENSE] 实时日志透视: 发现入库/出库节点触发了逻辑断言 [ASSERT_QUANTITY_MATCH]。`, type: 'insight' },
-      { content: `[HYPOTHESIS] 干扰项排除: 已排除物理环境干预（温度、湿度、安防正常），锁定逻辑层风险。`, type: 'insight' },
-      { content: `[CAUSAL] 因果链构建: 确定异常由上游供应波动导致的库存分配策略抖动引起。`, type: 'insight' },
-      { content: `[PREDICTION] 演进预测: 若不立即处理，该异常可能在 48 小时内波及下游 3 个关联生产订单。`, type: 'insight' },
-      { content: `[CONCLUSION] 风险评分重构: 最终风险值锚定在 7.2/10, 属于高优先级处理事项。`, type: 'conclusion' },
-      { content: `[ACTION] 智能分析报告已生成，已就绪。`, type: 'conclusion' },
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      await supabase.from('ai_analysis_steps').insert({
-        execution_id: executionId,
-        step_order: i + 1,
-        title: this.getStepTitle(step.type), // Added mandatory title
-        content: step.content,
-        type: step.type,
-        status: 'completed'
-      });
-      // 模拟处理时间
-      await new Promise(resolve => setTimeout(resolve, 800));
-    }
-
-    // 3. 生成最终结果
-    const findings = [
-      {
-        category: '价格异常',
-        description: `订单${order.order_number}的价格明显高于市场平均水平，超出35%。`,
-        severity: 'high' as const,
-        recommendations: ['验证价格计算是否正确', '与供应商确认最新价格', '评估是否需要调整定价策略']
-      },
-      {
-        category: '供应链风险',
-        description: '该产品近期供应波动较大，可能影响交付时间。',
-        severity: 'medium' as const,
-        recommendations: ['关注供应商生产状态', '考虑增加备选供应渠道', '适当调整库存安全水平']
+      console.error("触发 n8n 分析流程失败:", error);
+      
+      // 更新执行状态为失败
+      if (executionId) {
+        await supabase
+          .from('ai_analysis_executions')
+          .update({ 
+            status: 'failed',
+            finished_at: new Date().toISOString()
+          })
+          .eq('id', executionId);
       }
-    ];
-
-    const result: OrderAnalysis = {
-      orderId: order.id,
-      order_number: order.order_number,
-      analysis_type: order.type as any,
-      findings,
-      summary: '此订单存在价格异常和供应链风险。价格比市场均价高出35%，需确认定价准确性。同时，产品供应链近期波动较大，建议密切关注供应状态并考虑备选供应渠道，以避免可能的交付延迟。',
-      riskScore: 0.72,
-      relatedOrders: ['OUT-20241221-001', 'IN-20241220-002']
-    };
-
-    // 保存最终结果到数据库以便持久化
-    await supabase.from('ai_analysis_results').insert({
-      execution_id: executionId,
-      root_cause: result.summary,
-      risk_level: 'high',
-      solutions: result.findings,
-      recommendations: result.findings.map(f => f.recommendations).flat().join('\n')
-    });
-
-    // 更新执行状态
-    await supabase.from('ai_analysis_executions').update({
-      status: 'completed',
-      finished_at: new Date().toISOString()
-    }).eq('id', executionId);
-
-    // 5. 写入结果记录 (可选，取决于需求，这里直接返回)
-    return result;
+      
+      throw error;
+    }
   }
+
+  // Helper moved or removed if not needed elsewhere
 
   async analyzeOrders(orders: Order[]): Promise<OrderAnalysis[]> {
     return Promise.all(orders.map(order => this.analyzeOrder(order)));

@@ -169,33 +169,7 @@ export default function AIAnalysisResult({
     console.log("Starting result streaming...", { hasResult: !!activeResult, order: order?.order_number });
     
     if (!activeResult || !Array.isArray(activeResult.findings) || activeResult.findings.length === 0) {
-      // Fallback to mock if no real result
-      const mockFindings = [
-        {
-          category: '价格异常',
-          description: `订单${order?.order_number}的价格明显高于市场平均水平，超出35%。`,
-          severity: 'high',
-          recommendations: ['验证价格计算是否正确', '与供应商确认最新价格', '评估是否需要调整定价策略']
-        },
-        {
-          category: '供应链风险',
-          description: '该产品近期供应波动较大，可能影响交付时间。',
-          severity: 'medium',
-          recommendations: ['关注供应商生产状态', '考虑增加备选供应渠道', '适当调整库存安全水平']
-        }
-      ];
-      
-      let findingIndex = 0;
-      const findingInterval = setInterval(() => {
-        if (findingIndex < mockFindings.length) {
-          setStreamedFindings(prev => [...prev, JSON.stringify(mockFindings[findingIndex])]);
-          findingIndex++;
-          setCurrentFindingIndex(findingIndex);
-        } else {
-          clearInterval(findingInterval);
-          streamMockSummary();
-        }
-      }, 1000);
+      console.log("Waiting for real findings from database...");
       return;
     }
     
@@ -212,22 +186,6 @@ export default function AIAnalysisResult({
     }, 1000);
   };
   
-  const streamMockSummary = () => {
-    const mockSummary = `此订单存在价格异常和供应链风险。价格比市场均价高出35%，需确认定价准确性。同时，产品供应链近期波动较大，建议密切关注供应状态并考虑备选供应渠道，以避免可能的交付延迟。`;
-    let charIndex = 0;
-    const summaryInterval = setInterval(() => {
-      if (charIndex < mockSummary.length) {
-        setStreamedSummary(mockSummary.substring(0, charIndex + 1));
-        charIndex++;
-      } else {
-        clearInterval(summaryInterval);
-        setTimeout(() => {
-          setShowChart(true);
-          setStreamingComplete(true);
-        }, 500);
-      }
-    }, 30);
-  };
 
   const streamSummary = () => {
     if (!activeResult || typeof activeResult.summary !== 'string') return;
