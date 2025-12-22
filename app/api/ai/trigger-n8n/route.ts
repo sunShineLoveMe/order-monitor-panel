@@ -1,10 +1,14 @@
 // Version: 1.0.1 - n8n integration
 import { NextResponse } from 'next/server';
 
+// 临时硬编码 n8n Webhook URL（用于绕过 Vercel 环境变量问题）
+// TODO: 调试完成后改回使用环境变量
+const N8N_WEBHOOK_URL = 'http://54.252.239.164:5678/webhook-test/order-analysis';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+    const n8nWebhookUrl = N8N_WEBHOOK_URL;
 
     if (!n8nWebhookUrl) {
       return NextResponse.json({ error: 'N8N_WEBHOOK_URL not configured' }, { status: 500 });
