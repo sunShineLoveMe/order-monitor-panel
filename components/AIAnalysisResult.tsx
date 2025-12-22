@@ -47,17 +47,27 @@ export default function AIAnalysisResult({
   // Initialize and subscribe to realtime updates
   useEffect(() => {
     setActiveTab("thinking");
+    setThinkingSteps([]);
+    setStreamedFindings([]);
+    setStreamedSummary("");
+    setThinkingComplete(false);
+    setStreamingComplete(false);
+    setFetchedAnalysisResult(null);
+    
     if (!order) return;
 
+    let cleanupFn: (() => void) | undefined;
+
     const fetchResult = async (executionId: string) => {
+      console.log("Fetching result for execution:", executionId);
       // 1. Try to fetch detailed results
       const { data: resultData } = await supabase
         .from('ai_analysis_results')
         .select('*')
         .eq('execution_id', executionId)
-        .maybeSingle(); // Use maybeSingle to avoid 406 errors
+        .maybeSingle();
       
-      // 2. Try to fetch baseline result from execution (in case results table is empty)
+      // 2. Try to fetch baseline result from execution
       const { data: execData } = await supabase
         .from('ai_analysis_executions')
         .select('result_summary, risk_score')
@@ -70,10 +80,8 @@ export default function AIAnalysisResult({
                          (resultData?.risk_level === 'low' ? 0.2 : 
                          (execData?.risk_score ? Number(execData.risk_score) / 10 : 0)));
 
-      // Ensure riskScore is normalized to 0-1
       const normalizedRiskScore = rawRiskScore > 1 ? rawRiskScore / 10 : rawRiskScore;
 
-      // Ensure we have at least one finding if we have a summary
       let findings = resultData?.solutions || [];
       if (findings.length === 0 && summary) {
         findings = [{
@@ -85,6 +93,7 @@ export default function AIAnalysisResult({
       }
       
       if (summary || findings.length > 0) {
+        console.log("Setting fetched result:", { summary, findings: findings.length, riskScore: normalizedRiskScore });
         setFetchedAnalysisResult({
           orderId: order.id,
           order_number: order.order_number,
@@ -97,106 +106,163 @@ export default function AIAnalysisResult({
       }
     };
 
+    const setupExecutionSubscription = (executionId: string) => {
+      console.log("Setting up subscriptions for execution:", executionId);
+      
+      // Load existing steps
+      supabase
+        .from('ai_analysis_steps')
+        .select('*')
+        .eq('execution_id', executionId)
+        .order('step_order', { ascending: true })
+        .then(({ data: steps }) => {
+          if (steps && steps.length > 0) {
+            console.log("Loaded existing steps:", steps.length);
+            setThinkingSteps(steps.map(s => ({
+              id: s.id,
+              content: s.content,
+              type: s.type as any
+            })));
+          }
+        });
+
+      // Check current execution status
+      supabase
+        .from('ai_analysis_executions')
+        .select('status')
+        .eq('id', executionId)
+        .single()
+        .then(({ data: exec }) => {
+          if (exec?.status === 'completed') {
+            console.log("Execution already completed, fetching result");
+            setThinkingComplete(true);
+            fetchResult(executionId);
+          }
+        });
+
+      // Subscribe to new steps
+      const channel = supabase
+        .channel(`analysis-${executionId}`)
+        .on(
+          'postgres_changes',
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'ai_analysis_steps',
+            filter: `execution_id=eq.${executionId}`
+          },
+          (payload) => {
+            const newStep = payload.new as any;
+            console.log("New step received:", newStep.type);
+            setThinkingSteps(prev => [...prev, {
+              id: newStep.id,
+              content: newStep.content,
+              type: newStep.type
+            }]);
+            
+            setTimeout(() => {
+              if (thinkingStepsRef.current) {
+                thinkingStepsRef.current.scrollTop = thinkingStepsRef.current.scrollHeight;
+              }
+            }, 100);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public', 
+            table: 'ai_analysis_executions',
+            filter: `id=eq.${executionId}`
+          },
+          (payload) => {
+            console.log("Execution status update:", payload.new.status);
+            if (payload.new.status === 'completed') {
+              setThinkingComplete(true);
+              fetchResult(executionId);
+              setTimeout(() => {
+                setActiveTab("result");
+                startStreamingResults();
+              }, 1000);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'ai_analysis_results',
+            filter: `execution_id=eq.${executionId}`
+          },
+          () => {
+            console.log("Detailed results arrived");
+            fetchResult(executionId);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
     const loadInitialSteps = async () => {
-      // Get latest execution for this order
+      console.log("Loading initial steps for order:", order.id);
+      
+      // First try to use executionId from prop if available
+      const propExecutionId = analysisResult?.executionId;
+      if (propExecutionId) {
+        console.log("Using executionId from prop:", propExecutionId);
+        cleanupFn = setupExecutionSubscription(propExecutionId);
+        return;
+      }
+      
+      // Otherwise query for latest execution
       const { data: execution } = await supabase
         .from('ai_analysis_executions')
         .select('id, status')
         .eq('order_id', order.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (execution) {
-        // Load existing steps
-        const { data: steps } = await supabase
-          .from('ai_analysis_steps')
-          .select('*')
-          .eq('execution_id', execution.id)
-          .order('step_order', { ascending: true });
-
-        if (steps) {
-          setThinkingSteps(steps.map(s => ({
-            id: s.id,
-            content: s.content,
-            type: s.type as any
-          })));
-        }
-
-        if (execution.status === 'completed') {
-          setThinkingComplete(true);
-          fetchResult(execution.id);
-        }
-
-        // Subscribe to new steps
-        const channel = supabase
-          .channel(`analysis-${execution.id}`)
-          .on(
-            'postgres_changes',
-            { 
-              event: 'INSERT', 
-              schema: 'public', 
-              table: 'ai_analysis_steps',
-              filter: `execution_id=eq.${execution.id}`
-            },
-            (payload) => {
-              const newStep = payload.new as any;
-              setThinkingSteps(prev => [...prev, {
-                id: newStep.id,
-                content: newStep.content,
-                type: newStep.type
-              }]);
-              
-              // Auto scroll
-              setTimeout(() => {
-                if (thinkingStepsRef.current) {
-                  thinkingStepsRef.current.scrollTop = thinkingStepsRef.current.scrollHeight;
-                }
-              }, 100);
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public', 
-              table: 'ai_analysis_executions',
-              filter: `id=eq.${execution.id}`
-            },
-            (payload) => {
-              if (payload.new.status === 'completed') {
-                setThinkingComplete(true);
-                fetchResult(execution.id);
-                setTimeout(() => {
-                  setActiveTab("result");
-                  startStreamingResults();
-                }, 1000);
-              }
-            }
-          )
+        console.log("Found existing execution:", execution.id);
+        cleanupFn = setupExecutionSubscription(execution.id);
+      } else {
+        console.log("No execution found, subscribing to new executions");
+        // Subscribe to new executions for this order
+        const newExecChannel = supabase
+          .channel(`new-exec-${order.id}`)
           .on(
             'postgres_changes',
             {
               event: 'INSERT',
               schema: 'public',
-              table: 'ai_analysis_results',
-              filter: `execution_id=eq.${execution.id}`
+              table: 'ai_analysis_executions',
+              filter: `order_id=eq.${order.id}`
             },
-            () => {
-              // Detailed analysis arrived
-              fetchResult(execution.id);
+            (payload) => {
+              console.log("New execution created:", payload.new.id);
+              supabase.removeChannel(newExecChannel);
+              cleanupFn = setupExecutionSubscription(payload.new.id);
             }
           )
           .subscribe();
-
-        return () => {
-          supabase.removeChannel(channel);
+        
+        cleanupFn = () => {
+          supabase.removeChannel(newExecChannel);
         };
       }
     };
 
     loadInitialSteps();
-  }, [order]);
+    
+    return () => {
+      if (cleanupFn) cleanupFn();
+    };
+  }, [order, analysisResult?.executionId]);
 
   // Restart streaming results when thinking completes
   useEffect(() => {
