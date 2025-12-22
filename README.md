@@ -127,6 +127,74 @@ sequenceDiagram
     - 对接真实的日志服务和数据库。
     - 优化 LLM 提示词，提升分析质量。
 
+### ⚠️ n8n 集成常见问题与解决方案
+
+在将 n8n 工作流与本项目集成时，可能会遇到以下问题。本章节记录了完整的排查经验。
+
+#### 问题 1: Webhook 节点收不到请求
+
+**症状**: 点击「AI智能分析」按钮后，n8n 的 Webhook 节点没有任何输出。
+
+**可能原因及解决方案**:
+
+| 原因 | 解决方案 |
+|------|----------|
+| **混合内容限制 (Mixed Content)** | 如果网站是 HTTPS，但 n8n 是 HTTP，浏览器会静默拦截请求。必须使用服务端代理（见下方）。 |
+| **Vercel 环境变量未生效** | Vercel 添加环境变量后，需要**重新部署**才能生效。推荐取消勾选"Use existing Build Cache"后 Redeploy。 |
+| **Next.js 无法动态读取环境变量** | `process.env[key]` 在客户端不生效。必须用静态引用如 `process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL`。 |
+| **前端逻辑短路** | 如果前端代码在调用代理前检查环境变量，而环境变量为空，则不会发送请求。 |
+
+**推荐架构**: 使用服务端代理绕过所有客户端限制。
+
+```
+前端 (HTTPS) --> /api/ai/trigger-n8n (Server Route) --> n8n (HTTP)
+```
+
+代理代码示例 (`app/api/ai/trigger-n8n/route.ts`):
+```typescript
+import { NextResponse } from 'next/server';
+
+const N8N_WEBHOOK_URL = 'http://YOUR_N8N_IP:5678/webhook-test/order-analysis';
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const response = await fetch(N8N_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return NextResponse.json({ success: response.ok });
+}
+```
+
+#### 问题 2: 如何验证 Vercel 环境变量是否生效
+
+创建一个临时调试接口 (`app/api/debug/env/route.ts`):
+```typescript
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({
+    hasN8N_URL: !!process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL,
+    preview: process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL?.substring(0, 30) + '...',
+  });
+}
+```
+访问 `/api/debug/env` 查看返回值。如果返回 `false`，说明环境变量未正确注入。
+
+> ⚠️ 调试完成后请删除此接口，避免泄露敏感信息。
+
+#### 问题 3: n8n Webhook URL 显示 localhost
+
+**这是正常的！** n8n 界面上显示的 `http://localhost:5678/...` 只是本地提示，并不影响外部访问。只要您的 n8n 部署在公网 IP 或域名下，外部请求使用正确的公网地址即可。
+
+#### 最佳实践
+
+1. **使用服务端代理**：永远不要从前端直接调用 HTTP 的 n8n Webhook。
+2. **硬编码 URL 用于测试**：在调试阶段可以临时硬编码 URL，调试完成后改回环境变量。
+3. **无缓存 Redeploy**：在 Vercel 添加/修改环境变量后，务必取消勾选"Use existing Build Cache"后重新部署。
+4. **检查 Environments 范围**：确保环境变量勾选了 Production、Preview、Development。
+
 ---
 
 ## 最新更新：顶部导航栏和用户设置
