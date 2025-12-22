@@ -1,0 +1,96 @@
+{
+  "name": "Argus AI Order Forensics (Universal)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-analysis",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "table": "orders",
+        "id": "={{$json.body.order_id}}"
+      },
+      "id": "2",
+      "name": "Get Order",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={{$node[\"Webhook\"].json.headers[\"google_api_key\"] || \"YOUR_API_KEY\"}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are Argus AI, a forensic logistics analyst. Analyze this order: {{$node[\\\"Get Order\\\"].json.order_id}}. Customer: {{$node[\\\"Get Order\\\"].json.customer}}. Value: {{$node[\\\"Get Order\\\"].json.value}}. Generate 5-10 specific thinking steps mimicking a system trace, e.g., '[TRACE] Analyzing SKU...', followed by a final risk score and summary. Output STRICTLY as JSON with the format: {\\\"steps\\\": [{\\\"title\\\":\\\"Step Title\\\", \\\"content\\\":\\\"Actual content\\\", \\\"type\\\":\\\"analysis|observation|insight|conclusion\\\"}], \\\"summary\\\": \\\"...\\\", \\\"risk_score\\\": 0.8}\"\n    }]\n  }]\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini API (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const responseText = $input.first().json.candidates[0].content.parts[0].text;\n// Clean up potential markdown formatting in AI response\nconst cleanJson = responseText.replace(/```json|```/g, '').trim();\nconst response = JSON.parse(cleanJson);\nconst execution_id = $node[\"Webhook\"].json.body.execution_id;\n\nreturn response.steps.map((s, i) => ({\n  json: {\n    ...s,\n    step_order: i + 1,\n    execution_id: execution_id\n  }\n}));"
+      },
+      "id": "4",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_analysis_steps",
+        "data": {
+          "execution_id": "={{$json.execution_id}}",
+          "step_order": "={{$json.step_order}}",
+          "content": "={{$json.content}}",
+          "type": "={{$json.type}}",
+          "status": "completed",
+          "title": "={{$json.title}}"
+        }
+      },
+      "id": "5",
+      "name": "Insert Step",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "ai_analysis_executions",
+        "id": "={{$node[\"Webhook\"].json.body.execution_id}}",
+        "data": {
+          "status": "completed",
+          "finished_at": "={{new Date().toISOString()}}"
+        }
+      },
+      "id": "6",
+      "name": "Complete Execution",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Order", "type": "main", "index": 0 }]] },
+    "Get Order": { "main": [[{ "node": "Gemini API (HTTP)", "type": "main", "index": 0 }]] },
+    "Gemini API (HTTP)": { "main": [[{ "node": "Parse Response", "type": "main", "index": 0 }]] },
+    "Parse Response": { "main": [[{ "node": "Insert Step", "type": "main", "index": 0 }]] },
+    "Insert Step": { "main": [[{ "node": "Complete Execution", "type": "main", "index": 0 }]] }
+  }
+}
