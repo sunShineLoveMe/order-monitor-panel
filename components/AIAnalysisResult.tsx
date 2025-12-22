@@ -59,70 +59,90 @@ export default function AIAnalysisResult({
     let cleanupFn: (() => void) | undefined;
 
     const fetchResult = async (executionId: string) => {
-      console.log("Fetching result for execution:", executionId);
-      // 1. Try to fetch detailed results
-      const { data: resultData } = await supabase
-        .from('ai_analysis_results')
-        .select('*')
-        .eq('execution_id', executionId)
-        .maybeSingle();
+      console.log("[DEBUG-AI] Fetching result for execution:", executionId);
       
-      // 2. Try to fetch baseline result from execution
-      const { data: execData } = await supabase
-        .from('ai_analysis_executions')
-        .select('result_summary, risk_score')
-        .eq('id', executionId)
-        .single();
-      
-      const summary = resultData?.root_cause || execData?.result_summary || "";
-      const rawRiskScore = resultData?.risk_level === 'high' ? 0.9 : 
-                         (resultData?.risk_level === 'medium' ? 0.5 : 
-                         (resultData?.risk_level === 'low' ? 0.2 : 
-                         (execData?.risk_score ? Number(execData.risk_score) / 10 : 0)));
+      try {
+        // 1. Try to fetch detailed results
+        const { data: resultData, error: resultError } = await supabase
+          .from('ai_analysis_results')
+          .select('*')
+          .eq('execution_id', executionId)
+          .maybeSingle();
+        
+        if (resultError) console.error("[DEBUG-AI] Error fetching from ai_analysis_results:", resultError);
+        
+        // 2. Try to fetch baseline result from execution
+        const { data: execData, error: execError } = await supabase
+          .from('ai_analysis_executions')
+          .select('result_summary, risk_score, status')
+          .eq('id', executionId)
+          .single();
+        
+        if (execError) console.error("[DEBUG-AI] Error fetching from ai_analysis_executions:", execError);
+        
+        const summary = resultData?.root_cause || execData?.result_summary || "";
+        console.log("[DEBUG-AI] Summary retrieved:", summary ? "Yes (length " + summary.length + ")" : "No");
+        
+        const rawRiskScore = resultData?.risk_level === 'high' ? 0.9 : 
+                           (resultData?.risk_level === 'medium' ? 0.5 : 
+                           (resultData?.risk_level === 'low' ? 0.2 : 
+                           (execData?.risk_score ? Number(execData.risk_score) / 10 : 0)));
 
-      const normalizedRiskScore = rawRiskScore > 1 ? rawRiskScore / 10 : rawRiskScore;
+        const normalizedRiskScore = rawRiskScore > 1 ? rawRiskScore / 10 : rawRiskScore;
 
-      let findings = resultData?.solutions || [];
-      if (findings.length === 0 && summary) {
-        findings = [{
-          category: '机理分析',
-          description: summary,
-          severity: normalizedRiskScore > 0.7 ? 'high' : (normalizedRiskScore > 0.4 ? 'medium' : 'low'),
-          recommendations: ['执行专家复核流程', '核对交易报文有效性']
-        }];
-      }
-      
-      if (summary || findings.length > 0) {
-        console.log("Setting fetched result:", { summary, findings: findings.length, riskScore: normalizedRiskScore });
-        setFetchedAnalysisResult({
-          orderId: order.id,
-          order_number: order.order_number,
-          analysis_type: order.type as any,
-          findings: findings,
-          summary: summary,
-          riskScore: normalizedRiskScore,
-          relatedOrders: []
-        });
+        let findings = resultData?.solutions || [];
+        if (findings.length === 0 && summary) {
+          findings = [{
+            category: '机理分析',
+            description: summary,
+            severity: normalizedRiskScore > 0.7 ? 'high' : (normalizedRiskScore > 0.4 ? 'medium' : 'low'),
+            recommendations: ['执行专家复核流程', '核对交易报文有效性']
+          }];
+        }
+        
+        if (summary || findings.length > 0) {
+          console.log("[DEBUG-AI] Setting final analysis result state");
+          setFetchedAnalysisResult({
+            orderId: order.id,
+            order_number: order.order_number,
+            analysis_type: order.type as any,
+            findings: findings,
+            summary: summary,
+            riskScore: normalizedRiskScore,
+            relatedOrders: []
+          });
+        } else {
+          console.warn("[DEBUG-AI] No summary or findings found even though tried fallback");
+        }
+      } catch (err) {
+        console.error("[DEBUG-AI] Critical error in fetchResult:", err);
       }
     };
 
     const setupExecutionSubscription = (executionId: string) => {
-      console.log("Setting up subscriptions for execution:", executionId);
+      console.log("[DEBUG-AI] Setting up subscriptions for execution ID:", executionId);
       
       // Load existing steps
+      console.log("[DEBUG-AI] Loading existing steps from DB...");
       supabase
         .from('ai_analysis_steps')
         .select('*')
         .eq('execution_id', executionId)
         .order('step_order', { ascending: true })
-        .then(({ data: steps }) => {
+        .then(({ data: steps, error }) => {
+          if (error) {
+            console.error("[DEBUG-AI] Error loading steps:", error);
+            return;
+          }
           if (steps && steps.length > 0) {
-            console.log("Loaded existing steps:", steps.length);
+            console.log("[DEBUG-AI] Successfully loaded " + steps.length + " existing steps");
             setThinkingSteps(steps.map(s => ({
               id: s.id,
               content: s.content,
               type: s.type as any
             })));
+          } else {
+            console.log("[DEBUG-AI] No existing steps found for this execution yet");
           }
         });
 
@@ -132,11 +152,21 @@ export default function AIAnalysisResult({
         .select('status')
         .eq('id', executionId)
         .single()
-        .then(({ data: exec }) => {
+        .then(({ data: exec, error }) => {
+          if (error) {
+            console.error("[DEBUG-AI] Error checking execution status:", error);
+            return;
+          }
+          console.log("[DEBUG-AI] Current execution status in DB:", exec?.status);
           if (exec?.status === 'completed') {
-            console.log("Execution already completed, fetching result");
+            console.log("[DEBUG-AI] WAS ALREADY COMPLETED - Fast tracking to results tab");
             setThinkingComplete(true);
             fetchResult(executionId);
+            // If already complete, wait a bit for steps to load then switch
+            setTimeout(() => {
+              setActiveTab("result");
+              startStreamingResults();
+            }, 800);
           }
         });
 
@@ -153,7 +183,7 @@ export default function AIAnalysisResult({
           },
           (payload) => {
             const newStep = payload.new as any;
-            console.log("New step received:", newStep.type);
+            console.log("[DEBUG-AI] Realtime Step INSERT received:", newStep.type);
             setThinkingSteps(prev => [...prev, {
               id: newStep.id,
               content: newStep.content,
@@ -176,8 +206,9 @@ export default function AIAnalysisResult({
             filter: `id=eq.${executionId}`
           },
           (payload) => {
-            console.log("Execution status update:", payload.new.status);
+            console.log("[DEBUG-AI] Realtime Execution UPDATE received, status:", payload.new.status);
             if (payload.new.status === 'completed') {
+              console.log("[DEBUG-AI] Workflow just completed! Switching to result tab");
               setThinkingComplete(true);
               fetchResult(executionId);
               setTimeout(() => {
@@ -196,24 +227,25 @@ export default function AIAnalysisResult({
             filter: `execution_id=eq.${executionId}`
           },
           () => {
-            console.log("Detailed results arrived");
+            console.log("[DEBUG-AI] Realtime Detailed Results INSERT received");
             fetchResult(executionId);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log("[DEBUG-AI] Realtime subscription status:", status);
+        });
 
       return () => {
+        console.log("[DEBUG-AI] Cleaning up subscription for:", executionId);
         supabase.removeChannel(channel);
       };
     };
 
     const loadInitialSteps = async () => {
-      console.log("Loading initial steps for order:", order.id, "isAnalyzing:", isAnalyzing);
+      console.log("[DEBUG-AI] Starting loadInitialSteps. Order:", order.id, "isAnalyzing:", isAnalyzing);
       
-      // If a new analysis is being triggered, wait for the NEW execution
-      // Don't use old executions from the database
       if (isAnalyzing) {
-        console.log("New analysis in progress, subscribing to new executions");
+        console.log("[DEBUG-AI] isAnalyzing is TRUE, waiting for NEW execution record...");
         const newExecChannel = supabase
           .channel(`new-exec-${order.id}-${Date.now()}`)
           .on(
@@ -225,31 +257,35 @@ export default function AIAnalysisResult({
               filter: `order_id=eq.${order.id}`
             },
             (payload) => {
-              console.log("New execution created:", payload.new.id);
+              console.log("[DEBUG-AI] NEW EXECUTION DETECTED via Realtime:", payload.new.id);
               supabase.removeChannel(newExecChannel);
               cleanupFn = setupExecutionSubscription(payload.new.id);
             }
           )
-          .subscribe();
+          .subscribe((status) => {
+            console.log("[DEBUG-AI] New exec subscription status:", status);
+          });
         
         cleanupFn = () => {
+          console.log("[DEBUG-AI] Cleanup new-exec subscription");
           supabase.removeChannel(newExecChannel);
         };
         return;
       }
       
-      // Not analyzing - try to use executionId from prop if it matches current order
+      // Try prop execution ID
       const propExecutionId = analysisResult?.executionId;
       const propOrderId = analysisResult?.orderId;
       
       if (propExecutionId && propOrderId === order.id) {
-        console.log("Using executionId from prop:", propExecutionId);
+        console.log("[DEBUG-AI] Using execution ID from prop:", propExecutionId);
         cleanupFn = setupExecutionSubscription(propExecutionId);
         return;
       }
       
-      // Otherwise query for latest execution (viewing previous analysis)
-      const { data: execution } = await supabase
+      // Query DB for latest
+      console.log("[DEBUG-AI] Querying DB for latest execution...");
+      const { data: execution, error } = await supabase
         .from('ai_analysis_executions')
         .select('id, status')
         .eq('order_id', order.id)
@@ -257,14 +293,17 @@ export default function AIAnalysisResult({
         .limit(1)
         .maybeSingle();
 
+      if (error) {
+        console.error("[DEBUG-AI] DB Query error:", error);
+      }
+
       if (execution) {
-        console.log("Found existing execution:", execution.id);
+        console.log("[DEBUG-AI] Found existing latest execution in DB:", execution.id);
         cleanupFn = setupExecutionSubscription(execution.id);
       } else {
-        console.log("No execution found, will wait for one");
-        // Subscribe to new executions for this order
+        console.log("[DEBUG-AI] No execution found in DB. Subscribing to any future execution.");
         const newExecChannel = supabase
-          .channel(`new-exec-${order.id}-${Date.now()}`)
+          .channel(`wait-exec-${order.id}-${Date.now()}`)
           .on(
             'postgres_changes',
             {
@@ -274,7 +313,7 @@ export default function AIAnalysisResult({
               filter: `order_id=eq.${order.id}`
             },
             (payload) => {
-              console.log("New execution created:", payload.new.id);
+              console.log("[DEBUG-AI] Late execution arrived:", payload.new.id);
               supabase.removeChannel(newExecChannel);
               cleanupFn = setupExecutionSubscription(payload.new.id);
             }
@@ -290,9 +329,10 @@ export default function AIAnalysisResult({
     loadInitialSteps();
     
     return () => {
+      console.log("[DEBUG-AI] useEffect cleanup calling cleanupFn");
       if (cleanupFn) cleanupFn();
     };
-  }, [order, isAnalyzing, analysisResult?.executionId]);
+  }, [order?.id, isAnalyzing, analysisResult?.executionId]);
 
   // Restart streaming results when thinking completes
   useEffect(() => {
