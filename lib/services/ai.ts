@@ -906,8 +906,44 @@ export class AIService {
     }
 
     const executionId = execution.id;
+    const n8nWebhookUrl = this.getEnvVar('N8N_WEBHOOK_URL');
 
-    // 2. 模拟思考步骤并写入数据库 - 升级为“Cyber感知”风格
+    if (n8nWebhookUrl) {
+      console.log("检测到 n8n Webhook, 正在触发工作流...");
+      try {
+        // 异步触发 n8n 工作流，不需要等待它完成
+        fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: order.id,
+            execution_id: executionId,
+            order_number: order.order_number,
+            customer: order.customer,
+            product_name: order.product_name,
+            value: order.value,
+            quantity: order.quantity,
+            type: order.type
+          }),
+        }).catch(err => console.error("触发 n8n 失败:", err));
+
+        // 返回一个初始状态对象，UI 将通过 Supabase Realtime 接收更新
+        return {
+          orderId: order.id,
+          order_number: order.order_number,
+          analysis_type: order.type as any,
+          findings: [],
+          summary: "正在联络 Argus 智脑中心 (n8n Workflow)...",
+          riskScore: 0
+        };
+      } catch (error) {
+        console.error("调用 n8n 失败，切换回模拟模式:", error);
+      }
+    }
+
+    // 2. 模拟思考步骤并写入数据库 - 仅在没有 n8n 时运行
     const steps = [
       { content: `[SYSTEM] 启动深度感知引擎，正在调取订单 ${order.order_number} 的全量元数据...`, type: 'observation' },
       { content: `[ENVIRONMENT] 扫描仓库环境状态... 检测到该时段仓储网络延迟 24ms, 处于正常波动范围。`, type: 'observation' },
@@ -954,18 +990,26 @@ export class AIService {
     const result: OrderAnalysis = {
       orderId: order.id,
       order_number: order.order_number,
-      analysis_type: order.type,
+      analysis_type: order.type as any,
       findings,
       summary: '此订单存在价格异常和供应链风险。价格比市场均价高出35%，需确认定价准确性。同时，产品供应链近期波动较大，建议密切关注供应状态并考虑备选供应渠道，以避免可能的交付延迟。',
       riskScore: 0.72,
-      relatedOrders: []
+      relatedOrders: ['OUT-20241221-001', 'IN-20241220-002']
     };
 
-    // 4. 更新执行记录为已完成
+    // 保存最终结果到数据库以便持久化
+    await supabase.from('ai_analysis_results').insert({
+      execution_id: executionId,
+      root_cause: result.summary,
+      risk_level: 'high',
+      solutions: result.findings,
+      recommendations: result.findings.map(f => f.recommendations).flat().join('\n')
+    });
+
+    // 更新执行状态
     await supabase.from('ai_analysis_executions').update({
       status: 'completed',
-      result_summary: result.summary,
-      risk_score: result.riskScore
+      finished_at: new Date().toISOString()
     }).eq('id', executionId);
 
     // 5. 写入结果记录 (可选，取决于需求，这里直接返回)

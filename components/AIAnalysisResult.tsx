@@ -39,12 +39,35 @@ export default function AIAnalysisResult({
   const [showChart, setShowChart] = useState<boolean>(false);
   const [thinkingComplete, setThinkingComplete] = useState<boolean>(false);
   const [streamingComplete, setStreamingComplete] = useState<boolean>(false);
+  const [fetchedAnalysisResult, setFetchedAnalysisResult] = useState<OrderAnalysis | null>(null);
   
+  const activeResult = fetchedAnalysisResult || analysisResult;
   const thinkingStepsRef = useRef<HTMLDivElement>(null);
 
   // Initialize and subscribe to realtime updates
   useEffect(() => {
+    setActiveTab("thinking");
     if (!order) return;
+
+    const fetchResult = async (executionId: string) => {
+      const { data: resultData } = await supabase
+        .from('ai_analysis_results')
+        .select('*')
+        .eq('execution_id', executionId)
+        .single();
+      
+      if (resultData) {
+        setFetchedAnalysisResult({
+          orderId: order.id,
+          order_number: order.order_number,
+          analysis_type: order.type as any,
+          findings: resultData.solutions || [],
+          summary: resultData.root_cause || "",
+          riskScore: resultData.risk_level === 'high' ? 0.72 : (resultData.risk_level === 'medium' ? 0.45 : 0.2),
+          relatedOrders: []
+        });
+      }
+    };
 
     const loadInitialSteps = async () => {
       // Get latest execution for this order
@@ -74,6 +97,7 @@ export default function AIAnalysisResult({
 
         if (execution.status === 'completed') {
           setThinkingComplete(true);
+          fetchResult(execution.id);
         }
 
         // Subscribe to new steps
@@ -107,13 +131,14 @@ export default function AIAnalysisResult({
             'postgres_changes',
             {
               event: 'UPDATE',
-              schema: 'public',
+              schema: 'public', 
               table: 'ai_analysis_executions',
               filter: `id=eq.${execution.id}`
             },
             (payload) => {
               if (payload.new.status === 'completed') {
                 setThinkingComplete(true);
+                fetchResult(execution.id);
                 setTimeout(() => {
                   setActiveTab("result");
                   startStreamingResults();
@@ -141,9 +166,9 @@ export default function AIAnalysisResult({
 
   // Streaming results logic
   const startStreamingResults = () => {
-    console.log("Starting result streaming...", { hasResult: !!analysisResult, order: order?.order_number });
+    console.log("Starting result streaming...", { hasResult: !!activeResult, order: order?.order_number });
     
-    if (!analysisResult || !Array.isArray(analysisResult.findings) || analysisResult.findings.length === 0) {
+    if (!activeResult || !Array.isArray(activeResult.findings) || activeResult.findings.length === 0) {
       // Fallback to mock if no real result
       const mockFindings = [
         {
@@ -176,8 +201,8 @@ export default function AIAnalysisResult({
     
     let findingIndex = 0;
     const findingInterval = setInterval(() => {
-      if (findingIndex < analysisResult.findings.length) {
-        setStreamedFindings(prev => [...prev, JSON.stringify(analysisResult.findings[findingIndex])]);
+      if (findingIndex < activeResult!.findings.length) {
+        setStreamedFindings(prev => [...prev, JSON.stringify(activeResult!.findings[findingIndex])]);
         findingIndex++;
         setCurrentFindingIndex(findingIndex);
       } else {
@@ -205,8 +230,8 @@ export default function AIAnalysisResult({
   };
 
   const streamSummary = () => {
-    if (!analysisResult || typeof analysisResult.summary !== 'string') return;
-    const summary = analysisResult.summary;
+    if (!activeResult || typeof activeResult.summary !== 'string') return;
+    const summary = activeResult.summary;
     let charIndex = 0;
     const summaryInterval = setInterval(() => {
       if (charIndex < summary.length) {
@@ -243,7 +268,7 @@ export default function AIAnalysisResult({
   };
 
   const renderChart = () => {
-    if (!analysisResult) return null;
+    if (!activeResult) return null;
     return (
       <div className="mt-4 border border-slate-800 rounded-xl p-6 bg-black/30 backdrop-blur-md shadow-2xl overflow-hidden relative group">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-30 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
@@ -458,8 +483,8 @@ export default function AIAnalysisResult({
           )}
         </TabsContent>
 
-        <TabsContent value="result" className="h-[520px] overflow-y-auto mt-0 pr-2 animate-in slide-in-from-right-4 duration-500">
-          {order && (
+        <TabsContent value="result" className="h-[520px] overflow-y-auto mt-0 pr-2 animate-in slide-in-from-right-4 duration-500 min-h-[400px]">
+          {order && activeResult ? (
             <div className="space-y-5">
               <div className="flex justify-between items-center p-4 bg-slate-900/60 rounded-xl border border-slate-800 shadow-xl overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
@@ -479,12 +504,12 @@ export default function AIAnalysisResult({
                 </div>
                 <div className="text-right relative z-10">
                   <div className="text-[10px] text-slate-500 uppercase tracking-tighter mb-1 font-mono">RISK PROBABILITY</div>
-                  <div className={cn(
+                <div className={cn(
                     "text-3xl font-black font-mono",
-                    analysisResult && analysisResult.riskScore > 0.7 ? "text-red-500" :
-                    analysisResult && analysisResult.riskScore > 0.4 ? "text-amber-500" : "text-emerald-500"
+                    activeResult && activeResult.riskScore > 0.7 ? "text-red-500" :
+                    activeResult && activeResult.riskScore > 0.4 ? "text-amber-500" : "text-emerald-500"
                   )}>
-                    {analysisResult ? (analysisResult.riskScore * 100).toFixed(0) : "0"}<span className="text-sm ml-0.5">%</span>
+                    {activeResult ? (activeResult.riskScore * 100).toFixed(0) : "0"}<span className="text-sm ml-0.5">%</span>
                   </div>
                 </div>
               </div>
@@ -520,6 +545,11 @@ export default function AIAnalysisResult({
                   </div>
                 )}
               </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full py-20 text-slate-500 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <p className="font-mono text-sm tracking-tight text-blue-400 uppercase">Awaiting Intel Payload...</p>
             </div>
           )}
         </TabsContent>
