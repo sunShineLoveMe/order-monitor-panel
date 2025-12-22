@@ -1,0 +1,92 @@
+{
+  "name": "Argus AI Order Forensics",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-analysis",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "table": "orders",
+        "id": "={{$json.body.order_id}}"
+      },
+      "id": "2",
+      "name": "Get Order",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "prompt": "You are Argus AI, a forensic logistics analyst. Analyze this order: {{$json.order_id}}. Findings so far: {{$json.findings}}. Generate 5-10 specific thinking steps mimicking a system trace, e.g., '[TRACE] Analyzing SKU...', followed by a final risk score and summary. Output as JSON.",
+        "model": "gemini-pro"
+      },
+      "id": "3",
+      "name": "Gemini AI",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split AI output into discrete steps\nconst steps = JSON.parse($input.first().json.text).steps;\nreturn steps.map((s, i) => ({ json: { ...s, step_order: i + 1, execution_id: $node[\"Webhook\"].json.body.execution_id } }));"
+      },
+      "id": "4",
+      "name": "Parse Steps",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_analysis_steps",
+        "data": {
+          "execution_id": "={{$json.execution_id}}",
+          "step_order": "={{$json.step_order}}",
+          "content": "={{$json.content}}",
+          "type": "={{$json.type}}",
+          "status": "completed",
+          "title": "={{$json.title}}"
+        }
+      },
+      "id": "5",
+      "name": "Insert Step",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "ai_analysis_executions",
+        "id": "={{$node[\"Webhook\"].json.body.execution_id}}",
+        "data": {
+          "status": "completed",
+          "finished_at": "={{new Date().toISOString()}}"
+        }
+      },
+      "id": "6",
+      "name": "Complete Execution",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get Order", "type": "main", "index": 0 }]] },
+    "Get Order": { "main": [[{ "node": "Gemini AI", "type": "main", "index": 0 }]] },
+    "Gemini AI": { "main": [[{ "node": "Parse Steps", "type": "main", "index": 0 }]] },
+    "Parse Steps": { "main": [[{ "node": "Insert Step", "type": "main", "index": 0 }]] },
+    "Insert Step": { "main": [[{ "node": "Complete Execution", "type": "main", "index": 0 }]] }
+  }
+}
