@@ -210,9 +210,11 @@ export default function AIAnalysisResult({
     const loadInitialSteps = async () => {
       console.log("Loading initial steps for order:", order.id);
       
-      // First try to use executionId from prop if available
+      // First try to use executionId from prop if available AND it matches current order
       const propExecutionId = analysisResult?.executionId;
-      if (propExecutionId) {
+      const propOrderId = analysisResult?.orderId;
+      
+      if (propExecutionId && propOrderId === order.id) {
         console.log("Using executionId from prop:", propExecutionId);
         cleanupFn = setupExecutionSubscription(propExecutionId);
         return;
