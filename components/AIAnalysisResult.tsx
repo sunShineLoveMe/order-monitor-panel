@@ -208,9 +208,37 @@ export default function AIAnalysisResult({
     };
 
     const loadInitialSteps = async () => {
-      console.log("Loading initial steps for order:", order.id);
+      console.log("Loading initial steps for order:", order.id, "isAnalyzing:", isAnalyzing);
       
-      // First try to use executionId from prop if available AND it matches current order
+      // If a new analysis is being triggered, wait for the NEW execution
+      // Don't use old executions from the database
+      if (isAnalyzing) {
+        console.log("New analysis in progress, subscribing to new executions");
+        const newExecChannel = supabase
+          .channel(`new-exec-${order.id}-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'ai_analysis_executions',
+              filter: `order_id=eq.${order.id}`
+            },
+            (payload) => {
+              console.log("New execution created:", payload.new.id);
+              supabase.removeChannel(newExecChannel);
+              cleanupFn = setupExecutionSubscription(payload.new.id);
+            }
+          )
+          .subscribe();
+        
+        cleanupFn = () => {
+          supabase.removeChannel(newExecChannel);
+        };
+        return;
+      }
+      
+      // Not analyzing - try to use executionId from prop if it matches current order
       const propExecutionId = analysisResult?.executionId;
       const propOrderId = analysisResult?.orderId;
       
@@ -220,7 +248,7 @@ export default function AIAnalysisResult({
         return;
       }
       
-      // Otherwise query for latest execution
+      // Otherwise query for latest execution (viewing previous analysis)
       const { data: execution } = await supabase
         .from('ai_analysis_executions')
         .select('id, status')
@@ -233,10 +261,10 @@ export default function AIAnalysisResult({
         console.log("Found existing execution:", execution.id);
         cleanupFn = setupExecutionSubscription(execution.id);
       } else {
-        console.log("No execution found, subscribing to new executions");
+        console.log("No execution found, will wait for one");
         // Subscribe to new executions for this order
         const newExecChannel = supabase
-          .channel(`new-exec-${order.id}`)
+          .channel(`new-exec-${order.id}-${Date.now()}`)
           .on(
             'postgres_changes',
             {
@@ -264,7 +292,7 @@ export default function AIAnalysisResult({
     return () => {
       if (cleanupFn) cleanupFn();
     };
-  }, [order, analysisResult?.executionId]);
+  }, [order, isAnalyzing, analysisResult?.executionId]);
 
   // Restart streaming results when thinking completes
   useEffect(() => {
