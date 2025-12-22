@@ -6,12 +6,21 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface DashboardStats {
-  totalOrders: number;
-  activeOrders: number;
   totalInventory: number;
-  exceptionRate: number;
-  monthlyGrowth: string;
-  inventoryTurnover: string;
+  inboundCount: number;
+  outboundCount: number;
+  exceptionCount: number;
+  monthlyGrowth: {
+    inventory: number;
+    inbound: number;
+    outbound: number;
+    exception: number;
+  };
+  inventoryTurnover: {
+    overall: number;
+    highDemand: number;
+    lowDemand: number;
+  };
   monthlyStats: any[];
 }
 
@@ -62,6 +71,33 @@ export class DatabaseService {
       return { orders, total: count || 0 };
     } catch (error) {
       console.error('获取订单失败:', error);
+      throw error;
+    }
+  }
+
+  static async updateOrder(id: string, updates: any): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('更新订单失败:', error);
+      throw error;
+    }
+  }
+
+  static async createOrder(order: any): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .insert(order);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('创建订单失败:', error);
       throw error;
     }
   }
@@ -130,9 +166,9 @@ export class DatabaseService {
 
   static async getDashboardStats(): Promise<DashboardStats> {
     try {
-      const [{ count: totalOrders }, { count: activeOrders }, { count: totalProducts }, { count: exceptions }] = await Promise.all([
-        supabase.from('orders').select('*', { count: 'exact', head: true }),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['pending', 'processing']),
+      const [{ count: inboundCount }, { count: outboundCount }, { count: totalProducts }, { count: exceptions }] = await Promise.all([
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('type', 'inbound'),
+        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('type', 'outbound'),
         supabase.from('products').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'exception')
       ]);
@@ -140,12 +176,21 @@ export class DatabaseService {
       const monthlyStats = await this.calculateMonthlyStats();
 
       return {
-        totalOrders: totalOrders || 0,
-        activeOrders: activeOrders || 0,
         totalInventory: totalProducts || 0,
-        exceptionRate: totalOrders ? Number(((exceptions || 0) / totalOrders * 100).toFixed(1)) : 0,
-        monthlyGrowth: '+12.5%',
-        inventoryTurnover: '4.2',
+        inboundCount: inboundCount || 0,
+        outboundCount: outboundCount || 0,
+        exceptionCount: exceptions || 0,
+        monthlyGrowth: {
+          inventory: 12.5,
+          inbound: 8.2,
+          outbound: 5.4,
+          exception: -2.1
+        },
+        inventoryTurnover: {
+          overall: 4.2,
+          highDemand: 6.8,
+          lowDemand: 1.2
+        },
         monthlyStats
       };
     } catch (error) {

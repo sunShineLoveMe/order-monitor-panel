@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Brain, BrainCircuit, AlertTriangle, CheckCircle2, BarChart4, LineChart, PieChart, NetworkIcon, ArrowRight, Activity, Lightbulb, FileText } from "lucide-react";
+import { Download, Brain, BrainCircuit, AlertTriangle, CheckCircle2, BarChart4, LineChart, PieChart, NetworkIcon, ArrowRight, Activity, Lightbulb, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrderAnalysis } from "@/lib/services/ai";
 import { Order as OrderType } from "@/lib/types";
