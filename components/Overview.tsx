@@ -4,6 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } fro
 import { dashboardService, type DashboardStats, type DashboardUpdate } from "@/lib/services/dashboard";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ActivityHeatmap } from "./ActivityHeatmap";
 
 interface ChartData {
   name: string;
@@ -233,6 +234,22 @@ export function Overview() {
           </defs>
         </BarChart>
       </ResponsiveContainer>
+      
+      {/* 新增：活动热力图集成 */}
+      <div className="mt-8 pt-6 border-t border-slate-800/50">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 bg-blue-500 rounded-full" />
+            <h3 className="text-sm font-medium text-foreground tracking-tight">2025 全链路活动趋势监测</h3>
+          </div>
+          <div className="text-[10px] font-mono text-muted-foreground bg-blue-500/5 px-2 py-0.5 rounded border border-blue-500/20">
+            ENGINE STATUS: ACTIVE
+          </div>
+        </div>
+        <div className="bg-slate-900/30 rounded-lg p-4 border border-slate-800/50 hover:border-blue-500/20 transition-colors group">
+          <ActivityHeatmap standalone />
+        </div>
+      </div>
     </div>
   );
 }
