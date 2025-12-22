@@ -926,6 +926,7 @@ export class AIService {
       await supabase.from('ai_analysis_steps').insert({
         execution_id: executionId,
         step_order: i + 1,
+        title: this.getStepTitle(step.type), // Added mandatory title
         content: step.content,
         type: step.type,
         status: 'completed'
@@ -1371,6 +1372,16 @@ export class AIService {
       };
       
       console.log('环境变量检测结果:', vars);
+    }
+  }
+
+  private getStepTitle(type: string): string {
+    switch (type) {
+      case 'observation': return '环境观测';
+      case 'analysis': return '逻辑分析';
+      case 'insight': return '智能洞察';
+      case 'conclusion': return '分析结论';
+      default: return '思考步骤';
     }
   }
 }

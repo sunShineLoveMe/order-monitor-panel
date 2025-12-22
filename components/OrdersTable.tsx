@@ -605,7 +605,7 @@ export default function OrdersTable({
             <AIAnalysisResult
               order={selectedOrder}
               analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
-              onExport={() => handleExportAnalysis()}
+              onExport={(steps) => handleExportAnalysis(steps)}
               onClose={() => setShowAnalysis(false)}
               isAnalyzing={isAnalyzing}
             />
