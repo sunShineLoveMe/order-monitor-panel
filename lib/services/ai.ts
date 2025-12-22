@@ -907,9 +907,10 @@ export class AIService {
 
     const executionId = execution.id;
     const n8nWebhookUrl = this.getEnvVar('N8N_WEBHOOK_URL');
+    console.log("n8n Webhook URL 状态:", n8nWebhookUrl ? "已配置" : "未配置");
 
     if (n8nWebhookUrl) {
-      console.log("检测到 n8n Webhook, 正在触发工作流...");
+      console.log("检测到 n8n Webhook URL:", n8nWebhookUrl, "，正在触发工作流...");
       try {
         // 异步触发 n8n 工作流，不需要等待它完成
         fetch(n8nWebhookUrl, {
@@ -1385,6 +1386,13 @@ export class AIService {
       
       // 尝试从Next.js公共环境变量获取
       const publicKey = `NEXT_PUBLIC_${name}`;
+      
+      // 特殊处理：Next.js 在客户端不支持动态访问 process.env[key]
+      // 必须静态引用才能被打包进前端代码
+      if (name === 'N8N_WEBHOOK_URL') {
+        return process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || defaultValue;
+      }
+
       // @ts-ignore - 访问process.env
       if (process.env && process.env[publicKey]) {
         // @ts-ignore - 访问process.env
@@ -1393,6 +1401,10 @@ export class AIService {
     }
     
     // 服务器端
+    if (name === 'N8N_WEBHOOK_URL') {
+      return process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || defaultValue;
+    }
+
     // @ts-ignore - 访问process.env
     if (typeof process !== 'undefined' && process.env && process.env[name]) {
       // @ts-ignore - 访问process.env
