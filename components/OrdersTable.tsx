@@ -177,7 +177,7 @@ export default function OrdersTable({
       }
     } catch (error) {
       console.error("AI分析触发失败:", error);
-    } finally {
+      // Only set isAnalyzing to false on error - let AIAnalysisResult handle completion
       setIsAnalyzing(false);
     }
   };
@@ -549,6 +549,7 @@ export default function OrdersTable({
         }
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] h-auto overflow-hidden p-0 border-none bg-transparent shadow-none">
+          <DialogTitle className="sr-only">AI 分析结果</DialogTitle>
           <div className="flex-1 overflow-hidden">
             <AIAnalysisResult
               order={selectedOrder}
