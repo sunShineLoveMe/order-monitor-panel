@@ -1,3 +1,4 @@
+// Version: 1.0.1 - n8n integration
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
