@@ -228,15 +228,45 @@ export default function AIAnalysisResult({
     };
 
     const init = async () => {
+      // 1. If isAnalyzing is true, it means we just triggered an analysis.
+      // However, the DB record might have been created BEFORE this component mounted.
+      // So first, check if there's a very recent execution (e.g. created in last 30s) that is running.
       if (isAnalyzing) {
-        console.log("[DEBUG-AI] isAnalyzing is TRUE, waiting for new execution...");
+        console.log("[DEBUG-AI] isAnalyzing=true. Checking for recent existing execution...");
+        
+        try {
+          const { data: recentExec } = await supabase
+            .from('ai_analysis_executions')
+            .select('id, created_at')
+            .eq('order_id', order.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (recentExec) {
+            const createdTime = new Date(recentExec.created_at).getTime();
+            const now = Date.now();
+            const isRecent = (now - createdTime) < 30000; // 30 seconds
+
+            if (isRecent) {
+              console.log("[DEBUG-AI] Found recent execution, using it:", recentExec.id);
+              if (isMounted.current) setupSubscriptions(recentExec.id);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("[DEBUG-AI] Error checking recent execution:", e);
+        }
+
+        // If no recent execution found, THEN wait for one (fallback for slower APIs)
+        console.log("[DEBUG-AI] No recent execution found, waiting for NEW INSERT...");
         const waitChannel = supabase
           .channel(`wait-${order.id}-${Date.now()}`)
           .on(
             'postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'ai_analysis_executions', filter: `order_id=eq.${order.id}` },
             (payload) => {
-              console.log("[DEBUG-AI] Detected NEW execution:", payload.new.id);
+              console.log("[DEBUG-AI] Detected NEW execution via Realtime:", payload.new.id);
               supabase.removeChannel(waitChannel);
               if (isMounted.current) setupSubscriptions(payload.new.id);
             }
@@ -245,7 +275,7 @@ export default function AIAnalysisResult({
         return;
       }
 
-      // If not analyzing, try to find existing execution
+      // If not analyzing (viewing history), try to find latest existing execution
       const propExecutionId = analysisResult?.executionId;
       if (propExecutionId && analysisResult?.orderId === order.id) {
         setupSubscriptions(propExecutionId);
