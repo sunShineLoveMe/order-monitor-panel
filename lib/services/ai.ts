@@ -907,18 +907,18 @@ export class AIService {
 
     const executionId = execution.id;
 
-    // 2. 模拟思考步骤并写入数据库
+    // 2. 模拟思考步骤并写入数据库 - 升级为“Cyber感知”风格
     const steps = [
-      { content: "收集订单基本信息...", type: 'observation' },
-      { content: `分析订单 ${order.order_number} 的产品信息和数量...`, type: 'observation' },
-      { content: `检查订单金额 ¥${order.value.toLocaleString()} 是否与市场价格一致...`, type: 'analysis' },
-      { content: `查找相关历史订单数据...`, type: 'observation' },
-      { content: `发现客户 "${order.customer}" 的历史订单模式...`, type: 'insight' },
-      { content: `检测到订单异常点: 产品价格偏离历史均价超过 35%`, type: 'insight' },
-      { content: `分析订单周期与供应链状态...`, type: 'analysis' },
-      { content: `检测到供应链异常: 该产品近期供应波动较大`, type: 'insight' },
-      { content: `生成风险评分: 7.2/10`, type: 'conclusion' },
-      { content: `整合分析结果与推荐措施...`, type: 'conclusion' },
+      { content: `[SYSTEM] 启动深度感知引擎，正在调取订单 ${order.order_number} 的全量元数据...`, type: 'observation' },
+      { content: `[ENVIRONMENT] 扫描仓库环境状态... 检测到该时段仓储网络延迟 24ms, 处于正常波动范围。`, type: 'observation' },
+      { content: `[TRACE] 关联分析: 检测到该 SKU (${order.product_name}) 的上游供应链接口返回了异常延迟信号 (-15%)。`, type: 'analysis' },
+      { content: `[CROSS-CHECK] 智能比对: 订单金额 ¥${order.value.toLocaleString()} 偏离该客户 "${order.customer}" 的历史采购均值曲线。`, type: 'analysis' },
+      { content: `[LOG-SENSE] 实时日志透视: 发现入库/出库节点触发了逻辑断言 [ASSERT_QUANTITY_MATCH]。`, type: 'insight' },
+      { content: `[HYPOTHESIS] 干扰项排除: 已排除物理环境干预（温度、湿度、安防正常），锁定逻辑层风险。`, type: 'insight' },
+      { content: `[CAUSAL] 因果链构建: 确定异常由上游供应波动导致的库存分配策略抖动引起。`, type: 'insight' },
+      { content: `[PREDICTION] 演进预测: 若不立即处理，该异常可能在 48 小时内波及下游 3 个关联生产订单。`, type: 'insight' },
+      { content: `[CONCLUSION] 风险评分重构: 最终风险值锚定在 7.2/10, 属于高优先级处理事项。`, type: 'conclusion' },
+      { content: `[ACTION] 智能分析报告已生成，已就绪。`, type: 'conclusion' },
     ];
 
     for (let i = 0; i < steps.length; i++) {
@@ -927,7 +927,8 @@ export class AIService {
         execution_id: executionId,
         step_order: i + 1,
         content: step.content,
-        type: step.type
+        type: step.type,
+        status: 'completed'
       });
       // 模拟处理时间
       await new Promise(resolve => setTimeout(resolve, 800));

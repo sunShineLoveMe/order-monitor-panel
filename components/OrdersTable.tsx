@@ -600,13 +600,7 @@ export default function OrdersTable({
           setIsAnalyzing(false);
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] h-auto overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BrainCircuit className="h-5 w-5 text-blue-500" />
-              AI 智能分析结果
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] h-auto overflow-hidden p-0 border-none bg-transparent shadow-none">
           <div className="flex-1 overflow-hidden">
             <AIAnalysisResult
               order={selectedOrder}

@@ -2,6 +2,7 @@ export interface Order {
   id: string;
   order_number: string;
   customer: string;
+  customer_name?: string;
   product_name: string;
   quantity: number;
   value: number;

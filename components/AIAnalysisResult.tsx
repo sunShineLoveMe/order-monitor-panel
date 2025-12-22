@@ -224,11 +224,11 @@ export default function AIAnalysisResult({
 
   const getStepStyle = (type: string) => {
     switch (type) {
-      case 'observation': return "bg-blue-50 border-blue-100 text-blue-800";
-      case 'analysis': return "bg-purple-50 border-purple-100 text-purple-800";
-      case 'insight': return "bg-amber-50 border-amber-100 text-amber-800";
-      case 'conclusion': return "bg-green-50 border-green-100 text-green-800";
-      default: return "bg-gray-50 border-gray-100 text-gray-800";
+      case 'observation': return "bg-blue-500/20 border-blue-500/40 text-blue-100 font-mono shadow-[0_0_10px_rgba(59,130,246,0.1)]";
+      case 'analysis': return "bg-purple-500/20 border-purple-500/40 text-purple-100 font-mono shadow-[0_0_10px_rgba(168,85,247,0.1)]";
+      case 'insight': return "bg-amber-500/20 border-amber-500/40 text-amber-100 font-mono shadow-[0_0_10px_rgba(245,158,11,0.1)]";
+      case 'conclusion': return "bg-emerald-500/20 border-emerald-500/40 text-emerald-100 font-mono shadow-[0_0_10px_rgba(16,185,129,0.1)]";
+      default: return "bg-slate-500/20 border-slate-500/40 text-slate-100 font-mono";
     }
   };
 
@@ -245,26 +245,72 @@ export default function AIAnalysisResult({
   const renderChart = () => {
     if (!analysisResult) return null;
     return (
-      <div className="mt-4 border rounded-lg p-4 bg-white">
-        <h5 className="font-medium mb-3 text-slate-800">风险评估图表</h5>
+      <div className="mt-4 border border-slate-800 rounded-xl p-6 bg-black/30 backdrop-blur-md shadow-2xl overflow-hidden relative group">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-30 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+        <h5 className="font-bold mb-6 text-slate-300 text-xs uppercase tracking-widest flex items-center gap-2">
+          <Activity className="h-3 w-3 text-blue-400" />
+          多维风险拓扑推演
+        </h5>
         <div className="flex flex-col md:flex-row items-center gap-8">
-          <div className="relative h-48 w-full md:w-1/2 mb-4">
+          <div className="relative h-56 w-full md:w-1/2 mb-4 group/chart">
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-full h-40 flex items-end justify-around px-4">
-                <div className="relative"><div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '60px' }}></div><div className="absolute -bottom-6 left-0 right-0 text-center text-xs">1月</div></div>
-                <div className="relative"><div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '80px' }}></div><div className="absolute -bottom-6 left-0 right-0 text-center text-xs">2月</div></div>
-                <div className="relative"><div className="w-12 bg-blue-500 rounded-t-md" style={{ height: '70px' }}></div><div className="absolute -bottom-6 left-0 right-0 text-center text-xs">3月</div></div>
-                <div className="relative"><div className="w-12 bg-red-500 rounded-t-md" style={{ height: '120px' }}></div><div className="absolute -bottom-6 left-0 right-0 text-center text-xs">当前</div></div>
+              <div className="w-full h-44 flex items-end justify-around px-4">
+                {[
+                  { label: 'T-3', val: 60, color: 'bg-blue-500/40' },
+                  { label: 'T-2', val: 80, color: 'bg-blue-500/50' },
+                  { label: 'T-1', val: 70, color: 'bg-blue-500/60' },
+                  { label: 'NOW', val: 130, color: 'bg-gradient-to-t from-red-600 to-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)]' }
+                ].map((item, id) => (
+                  <div key={id} className="relative group/bar flex flex-col items-center">
+                    <div 
+                      className={cn("w-10 rounded-t-lg transition-all duration-700 ease-out delay-100 group-hover/chart:opacity-100", item.color)} 
+                      style={{ height: showChart ? `${item.val}px` : '0px' }}
+                    >
+                      <div className="absolute -top-6 left-0 right-0 text-center text-[10px] font-mono text-white opacity-0 group-hover/bar:opacity-100 transition-opacity">
+                        ¥{(item.val * 1000).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="mt-3 text-[10px] font-mono text-slate-500">{item.label}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 text-center text-xs font-medium">单价比较（历史均价）</div>
+            <div className="absolute bottom-0 left-0 right-0 text-center text-[9px] font-bold text-slate-600 uppercase tracking-tighter">SKU 价格波动曲线 (历史同期)</div>
           </div>
-          <div className="md:w-1/2 flex flex-col items-center">
-            <h5 className="font-medium mb-2 text-slate-800 text-sm">风险因素分布</h5>
-            <div className="relative h-40 w-40">
-              <svg className="absolute inset-0" viewBox="0 0 200 200">
-                <polygon points="100,20 170,60 160,140 70,160 40,80" fill="rgba(239,68,68,0.2)" stroke="rgb(239,68,68)" strokeWidth="2" />
+          <div className="md:w-1/2 flex flex-col items-center p-4 bg-white/5 rounded-xl border border-white/5">
+            <h5 className="font-bold mb-4 text-slate-400 text-[10px] uppercase tracking-widest">因果关联概率场</h5>
+            <div className="relative h-44 w-44">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-32 border border-slate-700 rounded-full animate-[spin_20s_linear_infinite]" />
+                <div className="absolute w-24 h-24 border border-slate-800 rounded-full animate-[spin_15s_linear_infinite_reverse]" />
+              </div>
+              <svg className="absolute inset-0 drop-shadow-[0_0_5px_rgba(239,68,68,0.3)]" viewBox="0 0 200 200">
+                <defs>
+                   <linearGradient id="riskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                     <stop offset="0%" stopColor="rgba(239,68,68,0.5)" />
+                     <stop offset="100%" stopColor="rgba(147,51,234,0.5)" />
+                   </linearGradient>
+                </defs>
+                <polygon 
+                  points="100,30 160,70 140,150 60,160 30,80" 
+                  fill="url(#riskGrad)" 
+                  stroke="rgba(239,68,68,0.8)" 
+                  strokeWidth="1.5"
+                  className="animate-pulse"
+                />
+                {[30, 70, 150, 160, 80].map((v, i) => {
+                  const angles = [0, 72, 144, 216, 288];
+                  return <circle key={i} cx={100 + Math.cos(angles[i]*Math.PI/180) * (v-10)} cy={100 + Math.sin(angles[i]*Math.PI/180) * (v-10)} r="2" fill="white" className="animate-ping" style={{ animationDuration: `${2+i}s` }} />
+                })}
               </svg>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-4">
+               {['供给', '物流', '人力', '资金'].map(label => (
+                 <div key={label} className="flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                   <span className="text-[10px] text-slate-500">{label}风险</span>
+                 </div>
+               ))}
             </div>
           </div>
         </div>
@@ -276,69 +322,229 @@ export default function AIAnalysisResult({
     try {
       const finding = JSON.parse(findingJson);
       return (
-        <div key={index} className={cn("p-3 rounded-md mb-3 border", 
-          finding.severity === 'high' ? "bg-red-50 border-red-100" :
-          finding.severity === 'medium' ? "bg-amber-50 border-amber-100" : "bg-blue-50 border-blue-100")}>
-          <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className={cn("h-4 w-4", finding.severity === 'high' ? "text-red-500" : "text-amber-500")} />
-            <span className="font-medium">{finding.category}</span>
+        <div key={index} className={cn(
+          "p-4 rounded-xl mb-3 border backdrop-blur-md transition-all duration-300 hover:scale-[1.01]", 
+          finding.severity === 'high' ? "bg-red-500/10 border-red-500/30 text-red-200" :
+          finding.severity === 'medium' ? "bg-amber-500/10 border-amber-500/30 text-amber-200" : "bg-blue-500/10 border-blue-500/30 text-blue-200")}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={cn(
+              "p-1.5 rounded-lg",
+              finding.severity === 'high' ? "bg-red-500/20" :
+              finding.severity === 'medium' ? "bg-amber-500/20" : "bg-blue-500/20"
+            )}>
+              <AlertTriangle className={cn("h-4 w-4", 
+                finding.severity === 'high' ? "text-red-400" : 
+                finding.severity === 'medium' ? "text-amber-400" : "text-blue-400")} />
+            </div>
+            <span className="font-bold tracking-tight text-sm uppercase">{finding.category}</span>
+            <div className="ml-auto">
+               <Badge variant="outline" className={cn(
+                  "text-[10px] px-1.5 py-0",
+                  finding.severity === 'high' ? "border-red-500/50 text-red-400" :
+                  finding.severity === 'medium' ? "border-amber-500/50 text-amber-400" : "border-blue-500/50 text-blue-400"
+               )}>
+                 {finding.severity.toUpperCase()} PRIORITY
+               </Badge>
+            </div>
           </div>
-          <p className="text-sm">{finding.description}</p>
+          <p className="text-sm leading-relaxed opacity-90">{finding.description}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {finding.recommendations?.map((rec: string, ri: number) => (
+              <span key={ri} className="text-[10px] bg-black/30 border border-white/5 px-2 py-1 rounded text-slate-400 font-mono">
+                → {rec}
+              </span>
+            ))}
+          </div>
         </div>
       );
     } catch (e) { return null; }
   };
 
   return (
-    <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2">
-          <TabsTrigger value="thinking" className="flex items-center gap-1.5">
-            <BrainCircuit className="h-4 w-4" /> 思考过程 {thinkingComplete && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+    <div className="space-y-4 p-6 bg-[#090C14] text-slate-200 rounded-2xl border border-slate-800 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden relative min-h-[600px] flex flex-col">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+      <div className="flex items-center justify-between px-1 mb-2">
+        <div className="flex items-center gap-4 text-xs font-mono">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-emerald-500/80">SENSORS: ACTIVE</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="text-blue-500/80">CAUSAL ENGINE: ONLINE</span>
+          </div>
+          <div className="text-slate-500 tracking-wider">SECURE LINK ESTABLISHED</div>
+        </div>
+        <div className="text-[10px] text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700 font-mono">
+          REF: ARGUS-INTEL-{order?.order_number?.split('-').pop()}
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-2 bg-slate-900/50 border border-slate-800 p-1 mb-4 h-11">
+          <TabsTrigger 
+            value="thinking" 
+            className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-blue-400 transition-all duration-300"
+          >
+            <BrainCircuit className="h-4 w-4" /> 
+            <span className="font-medium">思考过程</span>
+            {thinkingComplete && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 animate-in zoom-in" />}
           </TabsTrigger>
-          <TabsTrigger value="result" className="flex items-center gap-1.5">
-            <LineChart className="h-4 w-4" /> 分析结果 {streamingComplete && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+          <TabsTrigger 
+            value="result" 
+            className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-purple-400 transition-all duration-300"
+          >
+            <LineChart className="h-4 w-4" /> 
+            <span className="font-medium">分析结果</span>
+            {streamingComplete && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 animate-in zoom-in" />}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="thinking" className="space-y-4 mt-2">
-          <div ref={thinkingStepsRef} className="space-y-3 max-h-[400px] overflow-y-auto p-2">
+        <TabsContent value="thinking" className="space-y-4 mt-0 animate-in fade-in duration-500">
+          <div 
+            ref={thinkingStepsRef} 
+            className="space-y-2.5 max-h-[420px] overflow-y-auto p-4 bg-black/40 rounded-xl border border-slate-800/50 backdrop-blur-sm scrollbar-thin scrollbar-thumb-slate-800"
+          >
+            {thinkingSteps.length === 0 && !isAnalyzing && (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-3">
+                <NetworkIcon className="h-10 w-10 opacity-20" />
+                <p className="font-mono text-sm tracking-tight">WAITING FOR ANALYTIC PAYLOAD...</p>
+              </div>
+            )}
+            
             {thinkingSteps.map((step, index) => (
-              <div key={step.id || index} className={cn("p-3 rounded-md border flex gap-2 items-start animate-in fade-in slide-in-from-bottom-2", getStepStyle(step.type))}>
-                <div className="bg-white/50 rounded-full p-1">{getStepIcon(step.type)}</div>
-                <p className="text-sm">{step.content}</p>
+              <div 
+                key={step.id || index} 
+                className={cn(
+                  "p-3 rounded-lg border-l-4 flex gap-3 items-start animate-in fade-in slide-in-from-left-2 transition-all duration-500 hover:bg-white/5", 
+                  getStepStyle(step.type)
+                )}
+              >
+                <div className="bg-black/20 rounded p-1.5 mt-0.5 border border-white/5 shadow-inner">
+                  {getStepIcon(step.type)}
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-widest opacity-60 font-bold whitespace-nowrap">
+                      STEP {String(index + 1).padStart(2, '0')} · {step.type}
+                    </span>
+                    <span className="text-[9px] opacity-40 font-mono">
+                      T+ {index * 0.8}s
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed tracking-tight">{step.content}</p>
+                </div>
               </div>
             ))}
+            
             {!thinkingComplete && isAnalyzing && (
-              <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              <div className="flex items-center gap-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg text-blue-400/80 animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-xs font-mono tracking-widest">SENSING ENVIRONMENT...</span>
+              </div>
             )}
           </div>
+          
           {thinkingComplete && (
-            <div className="flex justify-center"><Button onClick={() => setActiveTab("result")}>查看分析结果 <ArrowRight className="ml-2 h-4 w-4" /></Button></div>
+            <div className="flex justify-center pt-2">
+              <Button 
+                onClick={() => setActiveTab("result")}
+                className="bg-blue-600 hover:bg-blue-500 text-white border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 transition-all px-8 h-12 rounded-xl group"
+              >
+                查看分析结果 
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
           )}
         </TabsContent>
 
-        <TabsContent value="result" className="h-[500px] overflow-y-auto mt-2 pr-2">
+        <TabsContent value="result" className="h-[520px] overflow-y-auto mt-0 pr-2 animate-in slide-in-from-right-4 duration-500">
           {order && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-start">
-                <div><h4 className="font-medium">订单 {order.order_number}</h4><p className="text-sm text-muted-foreground">{order.product_name} · {order.customer}</p></div>
-                <Badge variant="outline">风险评分: {analysisResult ? (analysisResult.riskScore * 10).toFixed(1) : "N/A"}</Badge>
+            <div className="space-y-5">
+              <div className="flex justify-between items-center p-4 bg-slate-900/60 rounded-xl border border-slate-800 shadow-xl overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                <div className="relative z-10">
+                  <h4 className="font-bold text-lg text-white group flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-400" />
+                    订单 {order.order_number}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="bg-slate-800 text-slate-300 border-slate-700">
+                      {order.customer_name || order.customer}
+                    </Badge>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {order.product_name}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right relative z-10">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-tighter mb-1 font-mono">RISK PROBABILITY</div>
+                  <div className={cn(
+                    "text-3xl font-black font-mono",
+                    analysisResult && analysisResult.riskScore > 0.7 ? "text-red-500" :
+                    analysisResult && analysisResult.riskScore > 0.4 ? "text-amber-500" : "text-emerald-500"
+                  )}>
+                    {analysisResult ? (analysisResult.riskScore * 100).toFixed(0) : "0"}<span className="text-sm ml-0.5">%</span>
+                  </div>
+                </div>
               </div>
+
               <div className="space-y-4">
-                {streamedFindings.map((f, i) => renderFinding(f, i))}
+                <div className="flex items-center gap-2 px-1">
+                  <Activity className="h-4 w-4 text-purple-400" />
+                  <h5 className="text-xs font-bold uppercase tracking-widest text-slate-400">主要发现 ({streamedFindings.length})</h5>
+                  <div className="h-px bg-slate-800 flex-1 ml-2" />
+                </div>
+                
+                <div className="grid gap-3">
+                  {streamedFindings.map((f, i) => renderFinding(f, i))}
+                </div>
+                
                 {streamedSummary && (
-                  <div className="p-3 bg-slate-50 rounded-md border text-sm">{streamedSummary}</div>
+                  <div className="group relative">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl blur opacity-75 group-hover:opacity-100 transition duration-1000"></div>
+                    <div className="relative p-5 bg-slate-900 rounded-xl border border-slate-800/50 leading-relaxed text-sm text-slate-300 shadow-inner">
+                      <Lightbulb className="h-5 w-5 text-amber-500 mb-3" />
+                      {streamedSummary}
+                    </div>
+                  </div>
                 )}
-                {showChart && renderChart()}
+                
+                {showChart && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                    <div className="flex items-center gap-2 px-1 mt-6 mb-3">
+                      <BarChart4 className="h-4 w-4 text-blue-400" />
+                      <h5 className="text-xs font-bold uppercase tracking-widest text-slate-400">可视化推演</h5>
+                    </div>
+                    {renderChart()}
+                  </div>
+                )}
               </div>
             </div>
           )}
         </TabsContent>
       </Tabs>
-      <div className="flex justify-end gap-2 mt-4">
-        <Button variant="outline" onClick={onClose}>关闭</Button>
-        <Button onClick={() => onExport(thinkingSteps)}><Download className="mr-2 h-4 w-4" />导出报告</Button>
+
+      <div className="flex justify-between items-center gap-4 mt-6 pt-4 border-t border-slate-800/50">
+        <div className="text-[10px] text-slate-500 font-mono hidden sm:block">
+          CAUSAL_NODES: 128 | DATAPOINTS: 1.4M | LATENCY: 24ms
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            variant="ghost" 
+            onClick={onClose}
+            className="text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-xl border border-transparent hover:border-slate-700"
+          >
+            取消
+          </Button>
+          <Button 
+            onClick={() => onExport(thinkingSteps)}
+            className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-500 border border-emerald-500/30 rounded-xl"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            导出分析报告
+          </Button>
+        </div>
       </div>
     </div>
   );
