@@ -543,21 +543,43 @@ export default function OrdersTable({
 
       <Dialog open={showAnalysis} onOpenChange={(open) => {
         console.log("[DEBUG-AI] Dialog onOpenChange:", open);
+        // 如果正在分析中，禁止通过 onOpenChange 关闭（除非是代码强制关闭）
+        if (isAnalyzing && !open) {
+           console.log("[DEBUG-AI] Attempted to close dialog while analyzing - BLOCKED");
+           return;
+        }
         setShowAnalysis(open);
         if (!open) {
-          console.log("[DEBUG-AI] Dialog closed, forcing isAnalyzing = false");
-          // 关闭对话框时重置状态
+          console.log("[DEBUG-AI] Dialog closed normally, resetting isAnalyzing");
           setIsAnalyzing(false);
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] h-auto overflow-hidden p-0 border-none bg-transparent shadow-none">
+        <DialogContent 
+          className="max-w-4xl max-h-[90vh] h-auto overflow-hidden p-0 border-none bg-transparent shadow-none"
+          onPointerDownOutside={(e) => {
+            if (isAnalyzing) {
+              e.preventDefault();
+              console.log("[DEBUG-AI] Click outside blocked during analysis");
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isAnalyzing) {
+              e.preventDefault();
+              console.log("[DEBUG-AI] ESC blocked during analysis");
+            }
+          }}
+        >
           <DialogTitle className="sr-only">AI 分析结果</DialogTitle>
           <div className="flex-1 overflow-hidden">
             <AIAnalysisResult
               order={selectedOrder}
               analysisResult={selectedOrder ? analysisResult[selectedOrder.id] : null}
               onExport={(steps) => handleExportAnalysis(steps)}
-              onClose={() => setShowAnalysis(false)}
+              onClose={() => {
+                console.log("[DEBUG-AI] User clicked Cancel/Close button");
+                setIsAnalyzing(false); // Explicitly stop analyzing
+                setShowAnalysis(false);
+              }}
               isAnalyzing={isAnalyzing}
             />
           </div>
