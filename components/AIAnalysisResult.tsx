@@ -44,45 +44,58 @@ export default function AIAnalysisResult({
   const activeResult = fetchedAnalysisResult || analysisResult;
   const thinkingStepsRef = useRef<HTMLDivElement>(null);
 
+  // Ref to track if component is mounted for async operations
+  const isMounted = useRef(true);
+  const currentExecutionId = useRef<string | null>(null);
+
   // Initialize and subscribe to realtime updates
   useEffect(() => {
-    setActiveTab("thinking");
+    isMounted.current = true;
+    
+    // Reset state for new order/analysis
     setThinkingSteps([]);
     setStreamedFindings([]);
     setStreamedSummary("");
     setThinkingComplete(false);
     setStreamingComplete(false);
     setFetchedAnalysisResult(null);
+    setActiveTab("thinking");
     
-    if (!order) return;
+    if (!order?.id) return;
 
-    let cleanupFn: (() => void) | undefined;
+    console.log("[DEBUG-AI] useEffect triggered. Order:", order.order_number, "isAnalyzing:", isAnalyzing);
+
+    let activeChannel: any = null;
+
+    const cleanup = () => {
+      console.log("[DEBUG-AI] Cleaning up subscriptions...");
+      if (activeChannel) {
+        supabase.removeChannel(activeChannel);
+        activeChannel = null;
+      }
+      currentExecutionId.current = null;
+    };
 
     const fetchResult = async (executionId: string) => {
-      console.log("[DEBUG-AI] Fetching result for execution:", executionId);
+      if (!isMounted.current) return;
+      console.log("[DEBUG-AI] fetchResult start:", executionId);
       
       try {
-        // 1. Try to fetch detailed results
-        const { data: resultData, error: resultError } = await supabase
+        const { data: resultData } = await supabase
           .from('ai_analysis_results')
           .select('*')
           .eq('execution_id', executionId)
           .maybeSingle();
         
-        if (resultError) console.error("[DEBUG-AI] Error fetching from ai_analysis_results:", resultError);
-        
-        // 2. Try to fetch baseline result from execution
-        const { data: execData, error: execError } = await supabase
+        const { data: execData } = await supabase
           .from('ai_analysis_executions')
           .select('result_summary, risk_score, status')
           .eq('id', executionId)
           .single();
         
-        if (execError) console.error("[DEBUG-AI] Error fetching from ai_analysis_executions:", execError);
-        
+        if (!isMounted.current) return;
+
         const summary = resultData?.root_cause || execData?.result_summary || "";
-        console.log("[DEBUG-AI] Summary retrieved:", summary ? "Yes (length " + summary.length + ")" : "No");
-        
         const rawRiskScore = resultData?.risk_level === 'high' ? 0.9 : 
                            (resultData?.risk_level === 'medium' ? 0.5 : 
                            (resultData?.risk_level === 'low' ? 0.2 : 
@@ -101,7 +114,7 @@ export default function AIAnalysisResult({
         }
         
         if (summary || findings.length > 0) {
-          console.log("[DEBUG-AI] Setting final analysis result state");
+          console.log("[DEBUG-AI] Analysis result LOADED");
           setFetchedAnalysisResult({
             orderId: order.id,
             order_number: order.order_number,
@@ -111,226 +124,152 @@ export default function AIAnalysisResult({
             riskScore: normalizedRiskScore,
             relatedOrders: []
           });
-        } else {
-          console.warn("[DEBUG-AI] No summary or findings found even though tried fallback");
         }
       } catch (err) {
-        console.error("[DEBUG-AI] Critical error in fetchResult:", err);
+        console.error("[DEBUG-AI] fetchResult error:", err);
       }
     };
 
-    const setupExecutionSubscription = (executionId: string) => {
-      console.log("[DEBUG-AI] Setting up subscriptions for execution ID:", executionId);
+    const setupSubscriptions = (executionId: string) => {
+      if (currentExecutionId.current === executionId) return;
+      currentExecutionId.current = executionId;
       
+      console.log("[DEBUG-AI] setupSubscriptions for ID:", executionId);
+
       // Load existing steps
-      console.log("[DEBUG-AI] Loading existing steps from DB...");
       supabase
         .from('ai_analysis_steps')
         .select('*')
         .eq('execution_id', executionId)
         .order('step_order', { ascending: true })
-        .then(({ data: steps, error }) => {
-          if (error) {
-            console.error("[DEBUG-AI] Error loading steps:", error);
-            return;
-          }
-          if (steps && steps.length > 0) {
-            console.log("[DEBUG-AI] Successfully loaded " + steps.length + " existing steps");
+        .then(({ data: steps }) => {
+          if (isMounted.current && steps && steps.length > 0) {
+            console.log("[DEBUG-AI] Found " + steps.length + " existing steps");
             setThinkingSteps(steps.map(s => ({
               id: s.id,
               content: s.content,
               type: s.type as any
             })));
-          } else {
-            console.log("[DEBUG-AI] No existing steps found for this execution yet");
           }
         });
 
-      // Check current execution status
+      // Check current status
       supabase
         .from('ai_analysis_executions')
         .select('status')
         .eq('id', executionId)
         .single()
-        .then(({ data: exec, error }) => {
-          if (error) {
-            console.error("[DEBUG-AI] Error checking execution status:", error);
-            return;
-          }
-          console.log("[DEBUG-AI] Current execution status in DB:", exec?.status);
+        .then(({ data: exec }) => {
+          if (!isMounted.current) return;
+          console.log("[DEBUG-AI] Current status check:", exec?.status);
           if (exec?.status === 'completed') {
-            console.log("[DEBUG-AI] WAS ALREADY COMPLETED - Fast tracking to results tab");
             setThinkingComplete(true);
             fetchResult(executionId);
-            // If already complete, wait a bit for steps to load then switch
             setTimeout(() => {
-              setActiveTab("result");
-              startStreamingResults();
-            }, 800);
+              if (isMounted.current) {
+                setActiveTab("result");
+                startStreamingResults();
+              }
+            }, 500);
           }
         });
 
-      // Subscribe to new steps
-      const channel = supabase
-        .channel(`analysis-${executionId}`)
+      // Realtime channel
+      if (activeChannel) supabase.removeChannel(activeChannel);
+      
+      activeChannel = supabase
+        .channel(`analysis-${executionId}-${Date.now()}`)
         .on(
           'postgres_changes',
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'ai_analysis_steps',
-            filter: `execution_id=eq.${executionId}`
-          },
+          { event: 'INSERT', schema: 'public', table: 'ai_analysis_steps', filter: `execution_id=eq.${executionId}` },
           (payload) => {
+            if (!isMounted.current) return;
             const newStep = payload.new as any;
-            console.log("[DEBUG-AI] Realtime Step INSERT received:", newStep.type);
-            setThinkingSteps(prev => [...prev, {
-              id: newStep.id,
-              content: newStep.content,
-              type: newStep.type
-            }]);
-            
+            console.log("[DEBUG-AI] Step INSERT received:", newStep.type);
+            setThinkingSteps(prev => {
+              if (prev.some(s => s.id === newStep.id)) return prev;
+              return [...prev, { id: newStep.id, content: newStep.content, type: newStep.type }];
+            });
             setTimeout(() => {
-              if (thinkingStepsRef.current) {
-                thinkingStepsRef.current.scrollTop = thinkingStepsRef.current.scrollHeight;
-              }
+              if (thinkingStepsRef.current) thinkingStepsRef.current.scrollTop = thinkingStepsRef.current.scrollHeight;
             }, 100);
           }
         )
         .on(
           'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public', 
-            table: 'ai_analysis_executions',
-            filter: `id=eq.${executionId}`
-          },
+          { event: 'UPDATE', schema: 'public', table: 'ai_analysis_executions', filter: `id=eq.${executionId}` },
           (payload) => {
-            console.log("[DEBUG-AI] Realtime Execution UPDATE received, status:", payload.new.status);
+            if (!isMounted.current) return;
+            console.log("[DEBUG-AI] Execution UPDATE received, status:", payload.new.status);
             if (payload.new.status === 'completed') {
-              console.log("[DEBUG-AI] Workflow just completed! Switching to result tab");
               setThinkingComplete(true);
               fetchResult(executionId);
               setTimeout(() => {
-                setActiveTab("result");
-                startStreamingResults();
+                if (isMounted.current) {
+                  setActiveTab("result");
+                  startStreamingResults();
+                }
               }, 1000);
             }
           }
         )
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'ai_analysis_results',
-            filter: `execution_id=eq.${executionId}`
-          },
+          { event: 'INSERT', schema: 'public', table: 'ai_analysis_results', filter: `execution_id=eq.${executionId}` },
           () => {
-            console.log("[DEBUG-AI] Realtime Detailed Results INSERT received");
+            if (!isMounted.current) return;
+            console.log("[DEBUG-AI] Findings INSERT received");
             fetchResult(executionId);
           }
         )
         .subscribe((status) => {
-          console.log("[DEBUG-AI] Realtime subscription status:", status);
+          console.log("[DEBUG-AI] Channel status:", status);
         });
-
-      return () => {
-        console.log("[DEBUG-AI] Cleaning up subscription for:", executionId);
-        supabase.removeChannel(channel);
-      };
     };
 
-    const loadInitialSteps = async () => {
-      console.log("[DEBUG-AI] Starting loadInitialSteps. Order:", order.id, "isAnalyzing:", isAnalyzing);
-      
+    const init = async () => {
       if (isAnalyzing) {
-        console.log("[DEBUG-AI] isAnalyzing is TRUE, waiting for NEW execution record...");
-        const newExecChannel = supabase
-          .channel(`new-exec-${order.id}-${Date.now()}`)
+        console.log("[DEBUG-AI] isAnalyzing is TRUE, waiting for new execution...");
+        const waitChannel = supabase
+          .channel(`wait-${order.id}-${Date.now()}`)
           .on(
             'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'ai_analysis_executions',
-              filter: `order_id=eq.${order.id}`
-            },
+            { event: 'INSERT', schema: 'public', table: 'ai_analysis_executions', filter: `order_id=eq.${order.id}` },
             (payload) => {
-              console.log("[DEBUG-AI] NEW EXECUTION DETECTED via Realtime:", payload.new.id);
-              supabase.removeChannel(newExecChannel);
-              cleanupFn = setupExecutionSubscription(payload.new.id);
+              console.log("[DEBUG-AI] Detected NEW execution:", payload.new.id);
+              supabase.removeChannel(waitChannel);
+              if (isMounted.current) setupSubscriptions(payload.new.id);
             }
           )
-          .subscribe((status) => {
-            console.log("[DEBUG-AI] New exec subscription status:", status);
-          });
-        
-        cleanupFn = () => {
-          console.log("[DEBUG-AI] Cleanup new-exec subscription");
-          supabase.removeChannel(newExecChannel);
-        };
+          .subscribe();
         return;
       }
-      
-      // Try prop execution ID
+
+      // If not analyzing, try to find existing execution
       const propExecutionId = analysisResult?.executionId;
-      const propOrderId = analysisResult?.orderId;
-      
-      if (propExecutionId && propOrderId === order.id) {
-        console.log("[DEBUG-AI] Using execution ID from prop:", propExecutionId);
-        cleanupFn = setupExecutionSubscription(propExecutionId);
+      if (propExecutionId && analysisResult?.orderId === order.id) {
+        setupSubscriptions(propExecutionId);
         return;
       }
-      
-      // Query DB for latest
-      console.log("[DEBUG-AI] Querying DB for latest execution...");
-      const { data: execution, error } = await supabase
+
+      const { data: execution } = await supabase
         .from('ai_analysis_executions')
-        .select('id, status')
+        .select('id')
         .eq('order_id', order.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (error) {
-        console.error("[DEBUG-AI] DB Query error:", error);
-      }
-
-      if (execution) {
-        console.log("[DEBUG-AI] Found existing latest execution in DB:", execution.id);
-        cleanupFn = setupExecutionSubscription(execution.id);
-      } else {
-        console.log("[DEBUG-AI] No execution found in DB. Subscribing to any future execution.");
-        const newExecChannel = supabase
-          .channel(`wait-exec-${order.id}-${Date.now()}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'ai_analysis_executions',
-              filter: `order_id=eq.${order.id}`
-            },
-            (payload) => {
-              console.log("[DEBUG-AI] Late execution arrived:", payload.new.id);
-              supabase.removeChannel(newExecChannel);
-              cleanupFn = setupExecutionSubscription(payload.new.id);
-            }
-          )
-          .subscribe();
-        
-        cleanupFn = () => {
-          supabase.removeChannel(newExecChannel);
-        };
+      if (isMounted.current && execution) {
+        setupSubscriptions(execution.id);
       }
     };
 
-    loadInitialSteps();
-    
+    init();
+
     return () => {
-      console.log("[DEBUG-AI] useEffect cleanup calling cleanupFn");
-      if (cleanupFn) cleanupFn();
+      isMounted.current = false;
+      cleanup();
     };
   }, [order?.id, isAnalyzing, analysisResult?.executionId]);
 
