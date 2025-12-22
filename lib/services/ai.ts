@@ -906,30 +906,31 @@ export class AIService {
     }
 
     const executionId = execution.id;
-    const n8nWebhookUrl = this.getEnvVar('N8N_WEBHOOK_URL');
-    console.log("n8n Webhook URL 状态:", n8nWebhookUrl ? "已配置" : "未配置");
+    
+    // 临时修复：总是尝试调用 n8n 代理（URL 已在代理端硬编码）
+    console.log("正在通过服务端代理触发 n8n 工作流...");
+    try {
+      // 使用本地 API 路由作为代理，解决浏览器 Mixed Content (HTTPS -> HTTP) 限制
+      const proxyResponse = await fetch('/api/ai/trigger-n8n', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          execution_id: executionId,
+          order_number: order.order_number,
+          customer: order.customer,
+          product_name: order.product_name,
+          value: order.value,
+          quantity: order.quantity,
+          type: order.type
+        }),
+      });
 
-    if (n8nWebhookUrl) {
-      console.log("检测到 n8n Webhook, 正在通过服务端代理触发工作流...");
-      try {
-        // 使用本地 API 路由作为代理，解决浏览器 Mixed Content (HTTPS -> HTTP) 限制
-        fetch('/api/ai/trigger-n8n', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            order_id: order.id,
-            execution_id: executionId,
-            order_number: order.order_number,
-            customer: order.customer,
-            product_name: order.product_name,
-            value: order.value,
-            quantity: order.quantity,
-            type: order.type
-          }),
-        }).catch(err => console.error("触发 n8n 代理失败:", err));
+      console.log("n8n 代理响应状态:", proxyResponse.status);
 
+      if (proxyResponse.ok) {
         // 返回一个初始状态对象，UI 将通过 Supabase Realtime 接收更新
         return {
           orderId: order.id,
@@ -939,9 +940,11 @@ export class AIService {
           summary: "正在联络 Argus 智脑中心 (n8n Workflow)...",
           riskScore: 0
         };
-      } catch (error) {
-        console.error("调用 n8n 失败，切换回模拟模式:", error);
+      } else {
+        console.error("n8n 代理返回错误，切换回本地模拟模式");
       }
+    } catch (error) {
+      console.error("调用 n8n 代理失败，切换回模拟模式:", error);
     }
 
     // 2. 模拟思考步骤并写入数据库 - 仅在没有 n8n 时运行
