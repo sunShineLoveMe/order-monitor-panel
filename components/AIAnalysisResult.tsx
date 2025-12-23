@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Brain, BrainCircuit, AlertTriangle, CheckCircle2, BarChart4, LineChart, PieChart, NetworkIcon, ArrowRight, Activity, Lightbulb, FileText, Loader2, X } from "lucide-react";
+import { Download, Brain, BrainCircuit, AlertTriangle, CheckCircle2, BarChart4, LineChart, PieChart, NetworkIcon, ArrowRight, Activity, Lightbulb, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrderAnalysis } from "@/lib/services/ai";
 import { Order as OrderType } from "@/lib/types";
@@ -504,17 +504,8 @@ export default function AIAnalysisResult({
           </div>
           <div className="text-slate-500 tracking-wider">SECURE LINK ESTABLISHED</div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[10px] text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700 font-mono">
-            REF: ARGUS-INTEL-{order?.order_number?.split('-').pop()}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-800/50 transition-colors text-slate-400 hover:text-white border border-transparent hover:border-slate-700"
-            aria-label="关闭"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="text-[10px] text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700 font-mono">
+          REF: ARGUS-INTEL-{order?.order_number?.split('-').pop()}
         </div>
       </div>
 

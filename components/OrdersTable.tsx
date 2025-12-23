@@ -543,11 +543,6 @@ export default function OrdersTable({
 
       <Dialog open={showAnalysis} onOpenChange={(open) => {
         console.log("[DEBUG-AI] Dialog onOpenChange:", open);
-        // 如果正在分析中，禁止通过 onOpenChange 关闭（除非是代码强制关闭）
-        if (isAnalyzing && !open) {
-           console.log("[DEBUG-AI] Attempted to close dialog while analyzing - BLOCKED");
-           return;
-        }
         setShowAnalysis(open);
         if (!open) {
           console.log("[DEBUG-AI] Dialog closed normally, resetting isAnalyzing");
