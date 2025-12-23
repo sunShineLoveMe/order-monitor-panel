@@ -78,14 +78,39 @@ export default function LoginPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#05070A] via-transparent to-transparent" />
         
-        {/* Animated Scanning Circle */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] pointer-events-none opacity-20">
-          <div className="absolute inset-0 border border-blue-500/30 rounded-full animate-[spin_30s_linear_infinite]" />
-          <div className="absolute inset-10 border border-purple-500/20 rounded-full animate-[spin_20s_linear_infinite_reverse]" />
-          <div className="absolute inset-20 border border-blue-400/10 rounded-full animate-[spin_60s_linear_infinite]" />
+        {/* Radar Scanning Effect */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] pointer-events-none opacity-[0.15]">
+          {/* Radar Circles */}
+          <div className="absolute inset-0 border border-blue-500/10 rounded-full" />
+          <div className="absolute inset-[15%] border border-blue-500/10 rounded-full" />
+          <div className="absolute inset-[30%] border border-blue-500/10 rounded-full" />
+          <div className="absolute inset-[45%] border border-blue-500/15 rounded-full" />
+
+          {/* Radar Sweep Line */}
+          <div className="absolute top-1/2 left-1/2 w-1/2 h-[2px] -translate-y-1/2 origin-left bg-gradient-to-r from-blue-500/0 via-blue-500/50 to-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-[radar-sweep_6s_linear_infinite]" />
           
-          {/* Pulsing Core */}
-          <div className="absolute inset-[45%] bg-blue-500/5 rounded-full blur-2xl animate-pulse" />
+          {/* Fading Radar Pulse */}
+          <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0%,rgba(59,130,246,0.1)_20%,transparent_30%)] animate-[radar-sweep_6s_linear_infinite]" />
+
+          {/* Random Radar Dots */}
+          {[
+            { t: '15%', l: '25%', d: '1s' },
+            { t: '65%', l: '15%', d: '2s' },
+            { t: '40%', l: '80%', d: '0.5s' },
+            { t: '85%', l: '60%', d: '3s' },
+          ].map((dot, i) => (
+            <div 
+              key={i} 
+              className="absolute w-2 h-2 bg-blue-400 rounded-full blur-[1px] animate-pulse"
+              style={{ top: dot.t, left: dot.l, animationDelay: dot.d, opacity: 0.6 }}
+            />
+          ))}
+        </div>
+
+        {/* Floating Particles/Nodes */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-[2px] h-[100px] bg-gradient-to-b from-transparent via-blue-500 to-transparent animate-[flow_20s_linear_infinite]" />
+          <div className="absolute top-1/3 right-1/4 w-[1px] h-[150px] bg-gradient-to-b from-transparent via-purple-500 to-transparent animate-[flow_15s_linear_infinite]" style={{ animationDelay: '5s' }} />
         </div>
       </div>
 
@@ -217,12 +242,12 @@ export default function LoginPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      正在验证...
+                      核准凭证中...
                     </>
                   ) : (
                     <>
                       <LogIn className="mr-2 h-5 w-5" />
-                      开始访问系统
+                      建立神经链路
                     </>
                   )}
                 </Button>
@@ -261,6 +286,15 @@ export default function LoginPage() {
         @keyframes glow {
           0%, 100% { opacity: 0.1; transform: scale(1); }
           50% { opacity: 0.2; transform: scale(1.05); }
+        }
+        @keyframes radar-sweep {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes flow {
+          0% { transform: translateY(-100%); opacity: 0; }
+          50% { opacity: 0.5; }
+          100% { transform: translateY(1000%); opacity: 0; }
         }
       `}</style>
     </div>
