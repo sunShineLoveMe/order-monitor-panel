@@ -4,10 +4,26 @@ import { NextResponse } from 'next/server';
 // 优先从环境变量获取 n8n Webhook URL
 // 使用服务端代理以规避浏览器 Mixed Content (HTTPS -> HTTP) 限制并增强安全性
 const getUrl = () => {
-  const envUrl = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  let envUrl = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  
+  // 智能纠错：如果用户从浏览器复制了 n8n 编辑器地址 (包含 /workflow/)，自动警告并替换为 webhook 路径
+  if (envUrl && envUrl.includes('/workflow/')) {
+    console.warn('[Proxy] 警告: 检测到配置的是 n8n 工作流编辑器地址 (UI URL)，而非 Webhook URL。');
+    console.warn('[Proxy] 正在尝试自动修正为 Webhook 路径...');
+    // 假设用户只是把 path 搞错了，保留 host
+    try {
+      const urlObj = new URL(envUrl);
+      envUrl = `${urlObj.protocol}//${urlObj.host}/webhook/order-analysis`;
+      console.warn(`[Proxy] 已自动修正为: ${envUrl}`);
+    } catch (e) {
+      console.error('[Proxy] URL 解析失败，无法自动修正');
+    }
+  }
+
   if (envUrl) return envUrl;
   
   // 备用硬编码 URL（仅作为最后手段）
+  // 确保这里也是 /webhook/ 而不是 /workflow/
   return 'http://54.252.239.164:5678/webhook/order-analysis';
 };
 
