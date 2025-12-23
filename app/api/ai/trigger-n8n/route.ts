@@ -18,7 +18,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const n8nWebhookUrl = N8N_WEBHOOK_URL;
 
-    console.log(`[Proxy] Triggering n8n at: ${n8nWebhookUrl.substring(0, 60)}...`);
+    console.log(`[Proxy] 收到触发请求. 目标 URL: ${n8nWebhookUrl}`);
+    
+    // 记录请求体关键信息（不包含敏感数据）
+    console.log(`[Proxy] 数据负载: order_id=${body.order_id}, execution_id=${body.execution_id}`);
 
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
@@ -28,15 +31,33 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
+    console.log(`[Proxy] n8n 响应状态: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Proxy] n8n responded with error: ${response.status}`, errorText);
-      return NextResponse.json({ error: 'n8n error', details: errorText }, { status: response.status });
+      console.error(`[Proxy] n8n 返回错误: ${response.status}`, errorText);
+      return NextResponse.json({ 
+        error: 'n8n_error', 
+        status: response.status,
+        details: errorText.substring(0, 200) 
+      }, { status: response.status });
     }
 
-    return NextResponse.json({ success: true });
+    const responseData = await response.text();
+    console.log(`[Proxy] n8n 触发成功:`, responseData.substring(0, 100));
+
+    return NextResponse.json({ success: true, message: 'Triggered successfully' });
   } catch (error: any) {
-    console.error('[Proxy] Failed to proxy to n8n:', error);
-    return NextResponse.json({ error: 'Internal server error', message: error.message }, { status: 500 });
+    console.error('[Proxy] 转发请求到 n8n 失败:', error);
+    
+    // 检查是否是由于 HTTPS/HTTP 引起的问题（虽然在服务器端不应该发生 Mixed Content）
+    const isProtocolError = error.message?.includes('protocol') || error.message?.includes('SSL');
+    
+    return NextResponse.json({ 
+      error: 'proxy_failed', 
+      message: error.message,
+      isProtocolError,
+      targetUrl: N8N_WEBHOOK_URL.substring(0, 30) + '...'
+    }, { status: 500 });
   }
 }
