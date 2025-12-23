@@ -6,6 +6,8 @@ import Sidebar from "@/components/sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import { Toaster } from "@/components/toaster";
 import DynamicBackground from "@/components/DynamicBackground";
+import { AuthProvider } from "@/lib/contexts/AuthContext";
+import LayoutWrapper from "@/components/LayoutWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,17 +25,13 @@ export default function RootLayout({
     <html lang="zh" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <DynamicBackground />
-          <div className="flex h-screen">
-            <Sidebar />
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <TopNavbar />
-              <div className="flex-1 overflow-auto pt-14">
-                {children}
-              </div>
-            </div>
-          </div>
-          <Toaster />
+          <AuthProvider>
+            <DynamicBackground />
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Moon, Sun, Globe, User, ChevronDown } from "lucide-react";
+import { Moon, Sun, Globe, User, ChevronDown, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function TopNavbar() {
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [language, setLanguage] = useState("zh_CN");
 
@@ -67,21 +69,29 @@ export default function TopNavbar() {
           {/* 用户信息 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="pl-2 pr-2">
-                <Avatar className="h-8 w-8 mr-2 focus-visible:ring-0">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary/10 text-primary">U</AvatarFallback>
+              <Button variant="ghost" className="pl-2 pr-2 hover:bg-transparent">
+                <Avatar className="h-8 w-8 mr-2 focus-visible:ring-0 border border-border">
+                  <AvatarImage src={user?.avatar_url || ""} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {user?.display_name?.[0] || user?.username?.[0] || "U"}
+                  </AvatarFallback>
                 </Avatar>
-                <span className="mr-1 text-sm font-medium">Admin</span>
+                <span className="mr-1 text-sm font-medium">{user?.display_name || user?.username || "Admin"}</span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 glass-card">
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
+            <DropdownMenuContent align="end" className="w-48 glass-card border-border/50">
+              <DropdownMenuItem className="cursor-pointer py-2.5">
+                <User className="mr-2 h-4 w-4 text-slate-400" />
                 <span>个人资料</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer text-red-500 focus:text-red-500">注销</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 py-2.5"
+                onClick={logout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>注销</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
