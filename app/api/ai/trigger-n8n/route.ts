@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 
 // 优先从环境变量获取 n8n Webhook URL
-// NEXT_PUBLIC_N8N_WEBHOOK_URL 为前台可访问变量，N8N_WEBHOOK_URL 为服务端变量
+// 使用服务端代理以规避浏览器 Mixed Content (HTTPS -> HTTP) 限制并增强安全性
 const getUrl = () => {
   const envUrl = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
   if (envUrl) return envUrl;

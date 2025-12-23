@@ -908,7 +908,7 @@ export class AIService {
 
     const executionId = execution.id;
     
-    // 临时修复：总是尝试调用 n8n 代理（URL 已在代理端硬编码）
+    // 通过服务端代理触发 n8n 工作流
     console.log("正在通过服务端代理触发 n8n 工作流...");
     try {
       // 使用本地 API 路由作为代理，解决浏览器 Mixed Content (HTTPS -> HTTP) 限制
