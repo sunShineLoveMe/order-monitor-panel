@@ -1,20 +1,24 @@
-// Version: 1.0.1 - n8n integration
+// Version: 1.0.2 - n8n integration with env var support
 import { NextResponse } from 'next/server';
 
-// 临时硬编码 n8n Webhook URL（用于绕过 Vercel 环境变量问题）
-// IMPORTANT: 使用 Production URL (webhook) 而不是 Test URL (webhook-test)
-const N8N_WEBHOOK_URL = 'http://54.252.239.164:5678/webhook/order-analysis';
+// 优先从环境变量获取 n8n Webhook URL
+// NEXT_PUBLIC_N8N_WEBHOOK_URL 为前台可访问变量，N8N_WEBHOOK_URL 为服务端变量
+const getUrl = () => {
+  const envUrl = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  if (envUrl) return envUrl;
+  
+  // 备用硬编码 URL（仅作为最后手段）
+  return 'http://54.252.239.164:5678/webhook/order-analysis';
+};
+
+const N8N_WEBHOOK_URL = getUrl();
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const n8nWebhookUrl = N8N_WEBHOOK_URL;
 
-    if (!n8nWebhookUrl) {
-      return NextResponse.json({ error: 'N8N_WEBHOOK_URL not configured' }, { status: 500 });
-    }
-
-    console.log(`[Proxy] Triggering n8n: ${n8nWebhookUrl}`);
+    console.log(`[Proxy] Triggering n8n at: ${n8nWebhookUrl.substring(0, 60)}...`);
 
     const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
