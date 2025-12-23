@@ -78,31 +78,35 @@ export default function LoginPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#05070A] via-transparent to-transparent" />
         
-        {/* Radar Scanning Effect */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] pointer-events-none opacity-[0.15]">
-          {/* Radar Circles */}
-          <div className="absolute inset-0 border border-blue-500/10 rounded-full" />
-          <div className="absolute inset-[15%] border border-blue-500/10 rounded-full" />
-          <div className="absolute inset-[30%] border border-blue-500/10 rounded-full" />
-          <div className="absolute inset-[45%] border border-blue-500/15 rounded-full" />
+        {/* Radar Scanning Effect - Further Intensified */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1400px] h-[1400px] pointer-events-none opacity-[0.55]">
+          {/* Radar Circles with Strong Glow */}
+          <div className="absolute inset-0 border-[2px] border-blue-500/30 rounded-full shadow-[inset_0_0_80px_rgba(59,130,246,0.1)]" />
+          <div className="absolute inset-[10%] border border-blue-500/25 rounded-full" />
+          <div className="absolute inset-[20%] border border-blue-500/25 rounded-full shadow-[inset_0_0_40px_rgba(59,130,246,0.05)]" />
+          <div className="absolute inset-[30%] border border-blue-500/30 rounded-full" />
+          <div className="absolute inset-[40%] border border-blue-500/35 rounded-full" />
+          <div className="absolute inset-[50%] border border-blue-500/40 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.1)]" />
 
-          {/* Radar Sweep Line */}
-          <div className="absolute top-1/2 left-1/2 w-1/2 h-[2px] -translate-y-1/2 origin-left bg-gradient-to-r from-blue-500/0 via-blue-500/50 to-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-[radar-sweep_6s_linear_infinite]" />
+          {/* Radar Sweep Line - Ultra prominent */}
+          <div className="absolute top-1/2 left-1/2 w-1/2 h-[8px] -translate-y-1/2 origin-left bg-gradient-to-r from-blue-500/0 via-blue-500/80 to-blue-300 shadow-[0_0_50px_rgba(59,130,246,1),0_0_100px_rgba(59,130,246,0.4)] animate-[radar-sweep_4s_linear_infinite]" />
           
-          {/* Fading Radar Pulse */}
-          <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0%,rgba(59,130,246,0.1)_20%,transparent_30%)] animate-[radar-sweep_6s_linear_infinite]" />
+          {/* Fading Radar Pulse - Longer and more opaque trail */}
+          <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0%,rgba(59,130,246,0.25)_35%,transparent_50%)] animate-[radar-sweep_4s_linear_infinite]" />
 
-          {/* Random Radar Dots */}
+          {/* High-Intensity Radar Dots - Larger and brighter */}
           {[
-            { t: '15%', l: '25%', d: '1s' },
-            { t: '65%', l: '15%', d: '2s' },
-            { t: '40%', l: '80%', d: '0.5s' },
-            { t: '85%', l: '60%', d: '3s' },
+            { t: '12%', l: '28%', d: '0.8s' },
+            { t: '68%', l: '18%', d: '1.2s' },
+            { t: '45%', l: '78%', d: '0.3s' },
+            { t: '82%', l: '55%', d: '2.5s' },
+            { t: '25%', l: '35%', d: '1.5s' },
+            { t: '55%', l: '65%', d: '1.9s' },
           ].map((dot, i) => (
             <div 
               key={i} 
-              className="absolute w-2 h-2 bg-blue-400 rounded-full blur-[1px] animate-pulse"
-              style={{ top: dot.t, left: dot.l, animationDelay: dot.d, opacity: 0.6 }}
+              className="absolute w-3.5 h-3.5 bg-blue-300 rounded-full blur-[0.5px] shadow-[0_0_20px_rgba(59,130,246,1),0_0_40px_rgba(59,130,246,0.5)] animate-pulse"
+              style={{ top: dot.t, left: dot.l, animationDelay: dot.d, opacity: 0.9 }}
             />
           ))}
         </div>
