@@ -43,18 +43,37 @@ export async function GET(request: Request) {
       }
     }
     
-    const response = await fetch(n8nUrl, {
-      method: 'GET',
-      headers,
-    });
+    const tryFetch = async (targetUrl: string) => {
+      console.log(`[n8n Proxy] 发起请求: ${targetUrl}`);
+      return await fetch(targetUrl, {
+        method: 'GET',
+        headers,
+      });
+    };
+
+    let response = await tryFetch(n8nUrl);
+    
+    // 核心修复逻辑：如果 401 且当前是公共 API，尝试切换到内部 REST 路径
+    // 有些 JWT 类型的 Key 仅在内部 REST 路径下有效
+    if (response.status === 401 && n8nUrl.includes('/api/v1/')) {
+      console.warn('[n8n Proxy] Public API 返回 401，尝试使用内部 REST 路径...');
+      const fallbackUrl = n8nUrl.replace('/api/v1/', '/rest/');
+      const fallbackResponse = await tryFetch(fallbackUrl);
+      
+      if (fallbackResponse.ok) {
+        console.log('[n8n Proxy] 内部 REST 路径请求成功');
+        response = fallbackResponse;
+      }
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[n8n Proxy] API 错误: ${response.status}`, errorText);
+      console.error(`[n8n Proxy] 最终 API 错误: ${response.status}`, errorText);
       return NextResponse.json({
         error: 'n8n_api_error',
         status: response.status,
         message: errorText.substring(0, 200),
+        attemptedUrl: n8nUrl.split('?')[0],
       }, { status: response.status });
     }
     
