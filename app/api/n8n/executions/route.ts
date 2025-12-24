@@ -3,10 +3,12 @@ import { NextResponse } from 'next/server';
 
 // 从环境变量获取 n8n 配置
 const getN8nConfig = () => {
-  const baseUrl = process.env.N8N_API_URL || process.env.NEXT_PUBLIC_N8N_API_URL || 'http://54.252.239.164:5678';
-  const apiKey = process.env.N8N_API_KEY || '';
+  // ⚠️ 临时硬编码用于调试 - 确认后请改回环境变量
+  const baseUrl = 'http://54.252.239.164:5678';
+  const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYTU4NzQyNC01MzhjLTRmZWQtYTdhYS0xZjM3NWFlNTU4NjIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY2NTQ0OTQ3fQ.HrOKLzpua13wCDf_v1roeYtqvVu-4Va4huNrubbh7QY';
   return { baseUrl, apiKey };
 };
+
 
 export async function GET(request: Request) {
   try {
