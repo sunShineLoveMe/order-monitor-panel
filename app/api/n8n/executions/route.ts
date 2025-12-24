@@ -16,9 +16,22 @@ export async function GET(request: Request) {
     
     const { baseUrl, apiKey } = getN8nConfig();
     
+    // ========== 调试信息开始 ==========
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      env_N8N_API_URL: process.env.N8N_API_URL ? '已配置' : '未配置',
+      env_N8N_API_KEY: process.env.N8N_API_KEY ? `已配置 (长度:${process.env.N8N_API_KEY.length}, 前10位:${process.env.N8N_API_KEY.substring(0,10)}...)` : '未配置',
+      env_NEXT_PUBLIC_N8N_API_URL: process.env.NEXT_PUBLIC_N8N_API_URL ? '已配置' : '未配置',
+      resolvedBaseUrl: baseUrl,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey.length,
+      apiKeyPrefix: apiKey.substring(0, 15) + '...',
+    };
+    console.log('[n8n Proxy] ========== 调试信息 ==========');
+    console.log(JSON.stringify(debugInfo, null, 2));
+    // ========== 调试信息结束 ==========
+    
     // 智能构建 URL
-    // 如果提供了 API Key，通常应该使用 /api/v1/ 路径
-    // 但如果用户使用的是 JWT (eyJ...)，有时 /rest/ 路径反而更可靠
     let n8nUrl = `${baseUrl}/api/v1/executions?limit=${limit}`;
     if (!apiKey) {
       n8nUrl = `${baseUrl}/rest/executions?limit=${limit}`;
@@ -28,56 +41,63 @@ export async function GET(request: Request) {
       n8nUrl += `&status=${status}`;
     }
     
-    console.log(`[n8n Proxy] 发起请求: ${n8nUrl}`);
+    console.log(`[n8n Proxy] 请求目标: ${n8nUrl}`);
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
     
     if (apiKey) {
-      // 兼容两种常见的 API Key 传递方式
       headers['X-N8N-API-KEY'] = apiKey;
-      // 如果是 JWT 格式，有些中间件可能需要 Authorization Bearer
       if (apiKey.startsWith('eyJ')) {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
     }
     
+    // 打印请求头（隐藏敏感部分）
+    console.log(`[n8n Proxy] 请求头: X-N8N-API-KEY=${apiKey ? '已设置' : '未设置'}, Authorization=${headers['Authorization'] ? '已设置' : '未设置'}`);
+    
     const tryFetch = async (targetUrl: string) => {
-      console.log(`[n8n Proxy] 发起请求: ${targetUrl}`);
-      return await fetch(targetUrl, {
+      console.log(`[n8n Proxy] 正在请求: ${targetUrl}`);
+      const startTime = Date.now();
+      const res = await fetch(targetUrl, {
         method: 'GET',
         headers,
       });
+      console.log(`[n8n Proxy] 响应状态: ${res.status} ${res.statusText} (耗时: ${Date.now() - startTime}ms)`);
+      return res;
     };
 
     let response = await tryFetch(n8nUrl);
     
-    // 核心修复逻辑：如果 401 且当前是公共 API，尝试切换到内部 REST 路径
-    // 有些 JWT 类型的 Key 仅在内部 REST 路径下有效
+    // 如果 401，尝试回退到 /rest/ 路径
     if (response.status === 401 && n8nUrl.includes('/api/v1/')) {
-      console.warn('[n8n Proxy] Public API 返回 401，尝试使用内部 REST 路径...');
+      console.warn('[n8n Proxy] /api/v1/ 返回 401，尝试 /rest/ 路径...');
       const fallbackUrl = n8nUrl.replace('/api/v1/', '/rest/');
       const fallbackResponse = await tryFetch(fallbackUrl);
       
       if (fallbackResponse.ok) {
-        console.log('[n8n Proxy] 内部 REST 路径请求成功');
+        console.log('[n8n Proxy] /rest/ 路径成功!');
         response = fallbackResponse;
+      } else {
+        console.error(`[n8n Proxy] /rest/ 路径也失败: ${fallbackResponse.status}`);
       }
     }
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[n8n Proxy] 最终 API 错误: ${response.status}`, errorText);
+      console.error(`[n8n Proxy] 最终失败: ${response.status}`, errorText.substring(0, 500));
       return NextResponse.json({
         error: 'n8n_api_error',
         status: response.status,
         message: errorText.substring(0, 200),
         attemptedUrl: n8nUrl.split('?')[0],
+        debug: debugInfo,  // 返回调试信息给前端
       }, { status: response.status });
     }
     
     const data = await response.json();
+
     
     // 处理并格式化执行数据
     const executions = formatExecutions(data);
