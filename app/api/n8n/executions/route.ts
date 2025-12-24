@@ -3,13 +3,11 @@ import { NextResponse } from 'next/server';
 
 // 从环境变量获取 n8n 配置
 const getN8nConfig = () => {
-  // ⚠️ 临时硬编码用于调试 - 确认后请改回环境变量
-  const baseUrl = 'http://54.252.239.164:5678';
-  const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYTU4NzQyNC01MzhjLTRmZWQtYTdhYS0xZjM3NWFlNTU4NjIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY2NTQ0OTQ3fQ.HrOKLzpua13wCDf_v1roeYtqvVu-4Va4huNrubbh7QY';
+  // 使用 ARGUS_ 前缀的环境变量（解决 Vercel 读取问题）
+  const baseUrl = process.env.ARGUS_N8N_BASE_URL || process.env.N8N_API_URL || 'http://54.252.239.164:5678';
+  const apiKey = process.env.ARGUS_N8N_API_KEY || process.env.N8N_API_KEY || '';
   return { baseUrl, apiKey };
 };
-
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -21,13 +19,13 @@ export async function GET(request: Request) {
     // ========== 调试信息开始 ==========
     const debugInfo = {
       timestamp: new Date().toISOString(),
+      env_ARGUS_N8N_BASE_URL: process.env.ARGUS_N8N_BASE_URL ? '已配置' : '未配置',
+      env_ARGUS_N8N_API_KEY: process.env.ARGUS_N8N_API_KEY ? `已配置 (长度:${process.env.ARGUS_N8N_API_KEY.length})` : '未配置',
       env_N8N_API_URL: process.env.N8N_API_URL ? '已配置' : '未配置',
-      env_N8N_API_KEY: process.env.N8N_API_KEY ? `已配置 (长度:${process.env.N8N_API_KEY.length}, 前10位:${process.env.N8N_API_KEY.substring(0,10)}...)` : '未配置',
-      env_NEXT_PUBLIC_N8N_API_URL: process.env.NEXT_PUBLIC_N8N_API_URL ? '已配置' : '未配置',
+      env_N8N_API_KEY: process.env.N8N_API_KEY ? '已配置' : '未配置',
       resolvedBaseUrl: baseUrl,
       hasApiKey: !!apiKey,
       apiKeyLength: apiKey.length,
-      apiKeyPrefix: apiKey.substring(0, 15) + '...',
     };
     console.log('[n8n Proxy] ========== 调试信息 ==========');
     console.log(JSON.stringify(debugInfo, null, 2));
