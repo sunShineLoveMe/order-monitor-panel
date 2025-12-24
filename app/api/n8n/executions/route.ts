@@ -16,27 +16,31 @@ export async function GET(request: Request) {
     
     const { baseUrl, apiKey } = getN8nConfig();
     
-    // 构建 n8n API URL
-    // 注意：n8n 的内部 REST API 端点是 /rest/executions
-    // 公共 API 端点是 /api/v1/executions（需要 API Key）
-    let n8nUrl = `${baseUrl}/rest/executions?limit=${limit}`;
+    // 智能构建 URL
+    // 如果提供了 API Key，通常应该使用 /api/v1/ 路径
+    // 但如果用户使用的是 JWT (eyJ...)，有时 /rest/ 路径反而更可靠
+    let n8nUrl = `${baseUrl}/api/v1/executions?limit=${limit}`;
+    if (!apiKey) {
+      n8nUrl = `${baseUrl}/rest/executions?limit=${limit}`;
+    }
+    
     if (status) {
       n8nUrl += `&status=${status}`;
     }
     
-    console.log(`[n8n Proxy] 获取执行历史: ${n8nUrl}`);
+    console.log(`[n8n Proxy] 发起请求: ${n8nUrl}`);
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
     
-    // 如果有 API Key，使用公共 API
     if (apiKey) {
-      n8nUrl = `${baseUrl}/api/v1/executions?limit=${limit}`;
-      if (status) {
-        n8nUrl += `&status=${status}`;
-      }
+      // 兼容两种常见的 API Key 传递方式
       headers['X-N8N-API-KEY'] = apiKey;
+      // 如果是 JWT 格式，有些中间件可能需要 Authorization Bearer
+      if (apiKey.startsWith('eyJ')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
     }
     
     const response = await fetch(n8nUrl, {
