@@ -38,4 +38,33 @@ export interface InventoryItem {
   status: 'in_stock' | 'low_stock' | 'out_of_stock';
   lastUpdated: string;
   supplier: string;
+}
+
+// n8n 工作流执行记录类型
+export interface N8nExecution {
+  id: string;
+  orderId?: string;          // 从 execution_data 中提取的订单ID
+  workflowId: string;
+  workflowName: string;
+  status: 'success' | 'error' | 'running' | 'waiting';
+  startedAt: string;
+  finishedAt?: string;
+  executionTime?: number;    // 执行耗时（毫秒）
+  triggerType: string;       // manual / webhook / schedule
+  nodeCount: number;         // 节点数量
+  retryCount?: number;       // 重试次数
+}
+
+// 智能洞察仪表盘汇总数据
+export interface AnalyticsSummary {
+  totalExecutions: number;
+  successCount: number;
+  errorCount: number;
+  runningCount: number;
+  avgExecutionTime: number;
+  successRate: number;
+  executionsByHour: { hour: string; count: number }[];
+  executionsByStatus: { status: string; count: number; color: string }[];
+  topOrders: { orderId: string; executionCount: number }[];
+  recentExecutions: N8nExecution[];
 } 
