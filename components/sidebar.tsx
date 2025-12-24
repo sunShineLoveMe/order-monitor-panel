@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, 
-  PackageSearch, 
-  PackagePlus, 
-  PackageMinus, 
-  ClipboardList, 
-  BarChart3, 
-  BookOpen,
-  Settings, 
+  Activity,
+  Radar,
+  ScanEye,
+  Send,
+  LayoutList,
+  BrainCircuit,
+  FileJson,
+  Settings2,
   LucideIcon,
   Cpu,
   Database
@@ -26,44 +26,44 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    title: "仪表盘",
+    title: "态势感知",
     href: "/",
-    icon: LayoutDashboard,
+    icon: Activity,
   },
   {
-    title: "订单列表",
+    title: "全程追踪",
     href: "/orders",
-    icon: ClipboardList,
+    icon: Radar,
   },
   {
-    title: "入库管理",
+    title: "准入监管",
     href: "/inbound",
-    icon: PackagePlus,
+    icon: ScanEye,
   },
   {
-    title: "出库管理",
+    title: "外发调度",
     href: "/outbound",
-    icon: PackageMinus,
+    icon: Send,
   },
   {
-    title: "库存查询",
+    title: "资源看板",
     href: "/inventory",
-    icon: PackageSearch,
+    icon: LayoutList,
   },
   {
-    title: "数据分析",
+    title: "智能洞察",
     href: "/analytics",
-    icon: BarChart3,
+    icon: BrainCircuit,
   },
   {
-    title: "知识库",
+    title: "情报中心",
     href: "/knowledge",
-    icon: BookOpen,
+    icon: FileJson,
   },
   {
-    title: "系统设置",
+    title: "核心配置",
     href: "/settings",
-    icon: Settings,
+    icon: Settings2,
   },
 ];
 
@@ -97,12 +97,12 @@ export default function Sidebar() {
             <Link
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent transition-colors ${
-                pathname === item.href || (item.title === "系统设置" && pathname.startsWith("/settings"))
+                pathname === item.href || (item.title === "核心配置" && pathname.startsWith("/settings"))
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground"
               }`}
               onClick={(e) => {
-                if (item.title === "系统设置") {
+                if (item.title === "核心配置") {
                   setSettingsOpen(!settingsOpen);
                 }
               }}
@@ -112,7 +112,7 @@ export default function Sidebar() {
             </Link>
             
             {/* 系统设置的子菜单 */}
-            {item.title === "系统设置" && settingsOpen && (
+            {item.title === "核心配置" && settingsOpen && (
               <div className="ml-5 pl-3 border-l border-border mt-1 mb-1 space-y-1">
                 {settingsSubItems.map((subItem) => (
                   <Link
