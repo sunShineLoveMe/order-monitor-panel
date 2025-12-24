@@ -63,6 +63,7 @@ export interface AnalyticsSummary {
   runningCount: number;
   avgExecutionTime: number;
   successRate: number;
+  peakHour: string;
   executionsByHour: { hour: string; count: number }[];
   executionsByStatus: { status: string; count: number; color: string }[];
   topOrders: { orderId: string; executionCount: number }[];
