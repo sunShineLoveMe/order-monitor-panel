@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server';
 
 // 从环境变量获取 n8n 配置
 const getN8nConfig = () => {
-  // 使用 ARGUS_ 前缀的环境变量（解决 Vercel 读取问题）
-  const baseUrl = process.env.ARGUS_N8N_BASE_URL || process.env.N8N_API_URL || 'http://54.252.239.164:5678';
-  const apiKey = process.env.ARGUS_N8N_API_KEY || process.env.N8N_API_KEY || '';
+  // 硬编码配置（临时方案）
+  const baseUrl = 'http://54.252.239.164:5678';
+  const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYTU4NzQyNC01MzhjLTRmZWQtYTdhYS0xZjM3NWFlNTU4NjIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY2NTQ0OTQ3fQ.HrOKLzpua13wCDf_v1roeYtqvVu-4Va4huNrubbh7QY';
   return { baseUrl, apiKey };
 };
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

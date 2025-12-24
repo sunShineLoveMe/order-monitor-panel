@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Moon, Sun, Globe, User, ChevronDown, LogOut } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Globe, User, ChevronDown, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -15,7 +14,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function TopNavbar() {
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
   const [language, setLanguage] = useState("zh_CN");
 
   const languages = [
@@ -53,18 +51,6 @@ export default function TopNavbar() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* 深色模式切换 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">切换主题</span>
-          </Button>
 
           {/* 用户信息 */}
           <DropdownMenu>
